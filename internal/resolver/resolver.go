@@ -84,6 +84,9 @@ type Options struct {
 	// SeriesYearConflict reports whether the catalogue holds a different
 	// show titled title that first aired in year (see series_year.go).
 	SeriesYearConflict func(ctx context.Context, show core.RatingKey, title string, year int) (bool, error)
+	// TitleNamesake reports whether the catalogue holds a different show
+	// whose own title is title (see jinx_namesake.go).
+	TitleNamesake func(ctx context.Context, show core.RatingKey, title string) (bool, error)
 	// AnimeCour maps multi-cour TMDB anime season episodes to their cour
 	// and cour-relative episode number; nil disables cour mapping.
 	AnimeCour AnimeCour
@@ -211,6 +214,8 @@ type inflight struct {
 type Service struct {
 	years                     seriesYears
 	seriesYearConflict        func(ctx context.Context, show core.RatingKey, title string, year int) (bool, error)
+	namesakes                 seriesYears
+	titleNamesake             func(ctx context.Context, show core.RatingKey, title string) (bool, error)
 	animeCour                 AnimeCour
 	libProfiles               LibraryProfiles
 	availabilityGeneration    uint64
@@ -285,7 +290,7 @@ var _ core.Resolver = (*Service)(nil)
 // (typically *newznab.Manager); health may be nil (health checks are
 // then skipped); db may be nil (state then lives in memory).
 func New(indexer core.Indexer, health core.HealthChecker, db *sql.DB, cfg config.Config, opts Options) *Service {
-	s := &Service{seriesYearConflict: opts.SeriesYearConflict, animeCour: opts.AnimeCour, libProfiles: opts.LibraryProfiles, searchObserved: opts.SearchObserved, discovered: opts.Discovered, observed: opts.Observed, invalidated: opts.Invalidated,
+	s := &Service{seriesYearConflict: opts.SeriesYearConflict, titleNamesake: opts.TitleNamesake, animeCour: opts.AnimeCour, libProfiles: opts.LibraryProfiles, searchObserved: opts.SearchObserved, discovered: opts.Discovered, observed: opts.Observed, invalidated: opts.Invalidated,
 		indexer: indexer, health: health, db: db,
 		bad: map[string]badMark{}, reps: map[string]reputation{},
 		avail: map[int64]availEntry{}, searchCache: map[string]searchCacheEntry{},
@@ -1424,6 +1429,7 @@ func (s *Service) rankWith(ctx context.Context, env rankEnv, req core.ResolveReq
 		s.loadRejectionsFor(ctx, req.Title.Key)
 	}
 	s.prepareSeriesYears(ctx, req.Title, sreq, results)
+	s.prepareNamesakes(ctx, req.Title, sreq, results)
 	start := 0
 	if trace != nil {
 		start = len(trace.Candidates)
@@ -1497,6 +1503,7 @@ func (s *Service) rankBelowMinFallback(ctx context.Context, req core.ResolveRequ
 		s.loadRejectionsFor(ctx, req.Title.Key)
 	}
 	s.prepareSeriesYears(ctx, req.Title, sreq, results)
+	s.prepareNamesakes(ctx, req.Title, sreq, results)
 	var fbTrace Trace
 	fbCands, rejected, err := s.rankPass(ctx, env, req, sreq, profile, results, &fbTrace, "", true)
 	if err != nil || len(fbCands) == 0 {
@@ -1897,6 +1904,9 @@ func (s *Service) rejectReason(rel core.Release, t *core.Title, sreq core.Search
 	}
 	acceptYear := func(y int) bool { return t != nil && s.seriesYearAccepted(t.ShowKey, y) }
 	if reason := rejectIdentityYears(rel, t, sreq, s.catalogLanguage(), acceptYear); reason != "" {
+		return reason
+	}
+	if reason := s.rejectNamesake(rel, t, sreq); reason != "" {
 		return reason
 	}
 	return rejectPolicy(rel, t, profile, caps, preferred, preferred && s.resolverCfg().OfferHigherVersions)
