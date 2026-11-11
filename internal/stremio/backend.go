@@ -388,6 +388,7 @@ func convertWith(streams []stream, req core.SearchRequest, packs bool, opts conv
 		}
 		rel.Info.Languages = streamLanguages(rel.Info.Languages, s.Name+"\n"+s.Title+"\n"+s.Description)
 		rel.Info = entryEpisodeIdentity(rel.Info, req, opts.entryEpisode)
+		rel.Info = specialIdentity(rel.Info, req, packs, file, torrent)
 		rel.DebridCached, rel.DebridUncached = debridHints(s.Name)
 		switch {
 		case hash != "":

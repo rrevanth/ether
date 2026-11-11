@@ -147,6 +147,24 @@ func entryEpisodeIdentity(info core.ReleaseInfo, req core.SearchRequest, entryEp
 	return info
 }
 
+// specialIdentity takes the add-on's word for a special's file. Asked for
+// one season-0 episode, an add-on that answers with a file inside a larger
+// torrent has matched that file to the episode; specials and OVAs inside
+// packs are named by title ("Lev Appears", "Tip Off") or by the season they
+// follow, so the torrent's own name ("S01-S04 + OVAs") never identifies them.
+// A file whose name numbers a different episode keeps its parsed identity.
+func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, file, torrent string) core.ReleaseInfo {
+	if packs || req.Type != core.TypeEpisode || req.Season != 0 || req.Episode <= 0 || file == "" || file == torrent {
+		return info
+	}
+	if f := releaseparse.Parse(file); len(f.Episodes) > 0 && !releaseparse.EpisodeMatches(f, 0, req.Episode) {
+		return info
+	}
+	info.Seasons, info.Episodes, info.FullSeason = []int{0}, []int{req.Episode}, false
+	info.AbsoluteEpisodes = nil
+	return info
+}
+
 // FetchNZB implements newznab.Backend for an addon's Usenet streams: it
 // downloads the stream's NZB. The addon's own origin is trusted (a
 // self-hosted addon on the LAN); any other host, and every redirect hop,
