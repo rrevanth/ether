@@ -44,15 +44,14 @@ func TestSpecialInsideAPackTakesTheAddonsEpisode(t *testing.T) {
 	}
 }
 
-func TestSpecialKeepsAFileThatNamesAnotherEpisode(t *testing.T) {
+func TestSpecialDropsAFileThatNamesAnotherEpisode(t *testing.T) {
 	req := core.SearchRequest{Type: core.TypeEpisode, Title: "Show", Season: 0, Episode: 1}
 	streams := []stream{{
 		Title:    "Show S01 1080p WEB-DL\nShow.S01E05.1080p.WEB-DL.mkv\n👤 3 💾 1 GB",
 		InfoHash: "89abcdef0123456789abcdef0123456789abcdef",
 	}}
-	rels, _, _ := convertWith(streams, req, false, convertOptions{})
-	if len(rels) != 1 || len(rels[0].Info.Episodes) != 1 || rels[0].Info.Episodes[0] != 5 {
-		t.Fatalf("a file naming S01E05 was re-labelled: %+v", rels)
+	if rels, _, _ := convertWith(streams, req, false, convertOptions{}); len(rels) != 0 {
+		t.Fatalf("a file naming S01E05 was kept for S00E01: %+v", rels)
 	}
 }
 
@@ -112,8 +111,11 @@ func TestSpecialIdentityRefusesFilesNumberedForAnotherSeasonOrEpisode(t *testing
 		{"[Anime Time] Haikyuu!! OAD - Lev Appears!", 1, true},                 // named by title
 		{"Haikyuu!! OVA 02 - vs. Akaten (2016) [1080p RUS]", 3, true},           // OVA count, no season
 	} {
-		info := specialIdentity(core.ReleaseInfo{Seasons: []int{1, 2}}, req, false, c.file, "pack", c.asked)
-		got := len(info.Seasons) == 1 && info.Seasons[0] == 0 && len(info.Episodes) == 1 && info.Episodes[0] == 6
+		info, keep := specialIdentity(core.ReleaseInfo{Seasons: []int{1, 2}}, req, false, c.file, "pack", c.asked)
+		got := keep && len(info.Seasons) == 1 && info.Seasons[0] == 0 && len(info.Episodes) == 1 && info.Episodes[0] == 6
+		if !keep && c.want {
+			t.Errorf("%q asked %d: dropped", c.file, c.asked)
+		}
 		if got != c.want {
 			t.Errorf("%q asked %d: stamped=%v, want %v", c.file, c.asked, got, c.want)
 		}

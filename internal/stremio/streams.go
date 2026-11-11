@@ -174,25 +174,27 @@ var crossEpisode = regexp.MustCompile(`(?i)(?:^|[^a-z\d])(\d{1,2})x\d{2,3}(?:[^\
 // follow, so the torrent's own name ("S01-S04 + OVAs") never identifies them.
 // A file whose name carries a season ("6x00", "S3 - 07") must be the
 // season-0 episode the add-on was asked for (IMDb's number for a renumbered
-// special); otherwise it keeps its parsed identity. Half-episode numbering
-// ("25.5", "13.5") is how specials are named, not a season's episode.
-func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, file, torrent string, asked int) core.ReleaseInfo {
+// special); any other is not this special and ok is false, the stream is
+// dropped (its own S00Exx may equal the TMDB number of another special).
+// Half-episode numbering ("25.5", "13.5") is how specials are named, not a
+// season's episode.
+func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, file, torrent string, asked int) (core.ReleaseInfo, bool) {
 	if packs || req.Type != core.TypeEpisode || req.Season != 0 || req.Episode <= 0 || file == "" {
-		return info
+		return info, true
 	}
 	want := req.Episode
 	if asked > 0 {
 		want = asked
 	}
 	if m := crossEpisode.FindStringSubmatch(file); m != nil && strings.TrimLeft(m[1], "0") != "" {
-		return info
+		return info, false
 	}
 	if f := releaseparse.Parse(file); len(f.Seasons) > 0 && !halfEpisode.MatchString(file) && !releaseparse.EpisodeMatches(f, 0, want) {
-		return info
+		return info, false
 	}
 	info.Seasons, info.Episodes, info.FullSeason = []int{0}, []int{req.Episode}, false
 	info.AbsoluteEpisodes = nil
-	return info
+	return info, true
 }
 
 // FetchNZB implements newznab.Backend for an addon's Usenet streams: it
