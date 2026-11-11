@@ -55,3 +55,44 @@ func TestSpecialKeepsAFileThatNamesAnotherEpisode(t *testing.T) {
 		t.Fatalf("a file naming S01E05 was re-labelled: %+v", rels)
 	}
 }
+
+// Cinemeta's (IMDb's) season 0 for Haikyu!! and Kuroko's Basketball, as listed on 2026-11-11.
+var haikyuIMDb = []specialVideo{{1, "The Arrival of Lev"}, {2, "Haikyu!! the Movie 1: The End and the Beginning"}, {3, "Vs. Failing Grades"},
+	{4, "Haikyu!! the Movie 2: The Winner and the Loser"}, {5, "Special Feature! Betting on the Spring High Volleyball"}, {6, "Haikyu!! the Movie 3: Talent and Sense"},
+	{7, "Haikyu!! the Movie 4: Battle of Concepts"}, {8, "Land vs. Air"}, {9, "The Path of the Ball"}, {11, "Haikyu!! Quest Picture Drama 01"},
+	{12, "Haikyu!! Quest Picture Drama 02"}, {13, "Haikyu!! Quest Picture Drama 03"}}
+
+var kurokoIMDb = []specialVideo{{1, "NG-Shuu 1"}, {2, "NG-Shuu 2"}, {7, "Let's Chat OVA"}, {12, "Idiots Can't Win!"}, {13, "NG-Shuu 2 1"},
+	{23, "Would You Like To Chat? OVA"}, {24, "NG-Shuu 3 1"}, {37, "Kuroko's Basketball: Last Game"}, {38, "NG-Shuu Last Game"},
+	{39, "Shall We Chat? OVA"}, {40, "The Best Present (Episode 75.5)"}}
+
+func TestMatchSpecialRenumbersTMDBToIMDb(t *testing.T) {
+	for _, c := range []struct {
+		videos  []specialVideo
+		title   string
+		episode int
+		want    int // 0: not mapped
+	}{
+		{haikyuIMDb, "Lev Appears!", 1, 1},
+		{haikyuIMDb, "VS Failing Marks", 2, 3},
+		{haikyuIMDb, "Special Feature! The Spring Tournament of Their Youth", 3, 5},
+		{haikyuIMDb, "Land vs. Air", 4, 8},
+		{haikyuIMDb, "The Path of the Ball", 5, 9},
+		{haikyuIMDb, "Haikyu Quest Picture Drama - Episode 1: Before the Boss Battle", 6, 11},
+		{haikyuIMDb, "Haikyu Quest Picture Drama - Episode 3: Magic of Resurrection", 8, 13},
+		{kurokoIMDb, "NG-Shuu 1", 1, 1},
+		{kurokoIMDb, "NG-Shuu 2 1", 13, 13},
+		{kurokoIMDb, "Would You Like to Chat?", 23, 23},
+		{kurokoIMDb, "The Best Present(Episode 75.5)", 33, 40},
+		{kurokoIMDb, "Last Game NG Shuu", 34, 38},
+		{kurokoIMDb, "Let's Talk", 35, 0},
+	} {
+		got, ok := matchSpecial(c.title, c.episode, c.videos)
+		if !ok {
+			got = 0
+		}
+		if got != c.want {
+			t.Errorf("matchSpecial(%q, %d) = %d, want %d", c.title, c.episode, got, c.want)
+		}
+	}
+}

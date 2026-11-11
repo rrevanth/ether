@@ -179,7 +179,7 @@ func (b *Backend) Search(ctx context.Context, req core.SearchRequest, reserve fu
 		return nil, err
 	}
 	rels, skippedNoHash, skippedAmbiguous := convertWith(answer.Streams, req, packs, convertOptions{
-		origin: b.origin(), instance: b.instance, entryEpisode: look.entryEpisode,
+		origin: b.origin(), instance: b.instance, entryEpisode: look.entryEpisode, askedSpecial: look.askedSpecial,
 	})
 	b.logSkipped(skippedNoHash, skippedAmbiguous)
 	return rels, nil
@@ -289,6 +289,9 @@ type convertOptions struct {
 	// entryEpisode is the episode number inside the anime database entry
 	// the addon was asked for (0 for IMDb and TMDB lookups).
 	entryEpisode int
+	// askedSpecial is the IMDb number a special was asked by: a pack's file
+	// named by that number is the special too.
+	askedSpecial int
 	// sources, when set, receives the index of the stream each release
 	// came from.
 	sources *[]int
@@ -388,7 +391,7 @@ func convertWith(streams []stream, req core.SearchRequest, packs bool, opts conv
 		}
 		rel.Info.Languages = streamLanguages(rel.Info.Languages, s.Name+"\n"+s.Title+"\n"+s.Description)
 		rel.Info = entryEpisodeIdentity(rel.Info, req, opts.entryEpisode)
-		rel.Info = specialIdentity(rel.Info, req, packs, file, torrent)
+		rel.Info = specialIdentity(rel.Info, req, packs, file, torrent, opts.askedSpecial)
 		rel.DebridCached, rel.DebridUncached = debridHints(s.Name)
 		switch {
 		case hash != "":

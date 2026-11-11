@@ -35,6 +35,8 @@ type idLookup struct {
 	kind, id     string
 	packs        bool
 	entryEpisode int
+	// askedSpecial is the IMDb number a TMDB special was asked by (0 otherwise).
+	askedSpecial int
 }
 
 // animeDatabases are the anime id prefixes Ether can map TMDB titles to,
@@ -54,7 +56,17 @@ func (b *Backend) lookupID(ctx context.Context, req core.SearchRequest) (idLooku
 		anime = b.svc.animeIDs()
 	}
 	look, ok := LookupStreams(ctx, *m, req, anime)
-	return idLookup{kind: look.Type, id: look.ID, packs: look.Packs, entryEpisode: look.EntryEpisode}, ok
+	asked := 0
+	if ok && req.Season == 0 && strings.HasPrefix(look.ID, "tt") {
+		// IMDb numbers specials its own way (jinx_specials.go).
+		imdbReq, mapped := imdbSpecialRequest(ctx, req)
+		if !mapped {
+			return idLookup{}, false
+		}
+		look, ok = LookupStreams(ctx, *m, imdbReq, anime)
+		asked = imdbReq.Episode
+	}
+	return idLookup{kind: look.Type, id: look.ID, packs: look.Packs, entryEpisode: look.EntryEpisode, askedSpecial: asked}, ok
 }
 
 // origin is the addon's scheme://host[:port], without credentials.
@@ -148,16 +160,18 @@ func entryEpisodeIdentity(info core.ReleaseInfo, req core.SearchRequest, entryEp
 }
 
 // specialIdentity takes the add-on's word for a special's file. Asked for
-// one season-0 episode, an add-on that answers with a file inside a larger
-// torrent has matched that file to the episode; specials and OVAs inside
-// packs are named by title ("Lev Appears", "Tip Off") or by the season they
+// one season-0 episode, an add-on that answers with a file (inside a pack
+// or alone) has matched that file to the episode; specials and OVAs are
+// named by title ("Lev Appears", "Tip Off") or by the season they
 // follow, so the torrent's own name ("S01-S04 + OVAs") never identifies them.
-// A file whose name numbers a different episode keeps its parsed identity.
-func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, file, torrent string) core.ReleaseInfo {
-	if packs || req.Type != core.TypeEpisode || req.Season != 0 || req.Episode <= 0 || file == "" || file == torrent {
+// A file whose name numbers a different episode (by TMDB or the IMDb number
+// it was asked by) keeps its parsed identity.
+func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, file, torrent string, asked int) core.ReleaseInfo {
+	if packs || req.Type != core.TypeEpisode || req.Season != 0 || req.Episode <= 0 || file == "" {
 		return info
 	}
-	if f := releaseparse.Parse(file); len(f.Episodes) > 0 && !releaseparse.EpisodeMatches(f, 0, req.Episode) {
+	f := releaseparse.Parse(file)
+	if len(f.Episodes) > 0 && !releaseparse.EpisodeMatches(f, 0, req.Episode) && (asked <= 0 || !releaseparse.EpisodeMatches(f, 0, asked)) {
 		return info
 	}
 	info.Seasons, info.Episodes, info.FullSeason = []int{0}, []int{req.Episode}, false
