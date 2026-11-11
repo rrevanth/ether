@@ -375,7 +375,7 @@ func (e *entry) observe(now time.Time, err error) *backoffEvent {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.stats.Requests++
-	if err == nil || errors.Is(err, core.ErrNotCached) || errors.Is(err, ErrGone) || errors.Is(err, core.ErrReleaseRejected) || errors.Is(err, core.ErrSourceUnavailable) {
+	if err == nil || errors.Is(err, core.ErrNotCached) || errors.Is(err, ErrGone) || errors.Is(err, core.ErrReleaseRejected) || errors.Is(err, core.ErrSourceUnavailable) || errors.Is(err, errDifferentTitle) {
 		// The provider answered; release-level outcomes and explicitly
 		// transient ones (a link still being generated, a torrent's
 		// server under maintenance) are not outages.

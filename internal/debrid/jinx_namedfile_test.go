@@ -1,7 +1,9 @@
 package debrid
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/braedonsaunders/ether/internal/core"
 )
@@ -33,5 +35,20 @@ func TestChooseFileIgnoresAnUnmatchedOrAmbiguousName(t *testing.T) {
 		if err != nil || f.Path != files[1].Path {
 			t.Fatalf("hint %q: ChooseFile = %q, %v; want the parsed S01E02", name, f.Path, err)
 		}
+	}
+}
+
+// A torrent whose files are another series is the release's fault: three
+// of them in a row must not pause the account for everyone.
+func TestDifferentTitleDoesNotPauseTheProvider(t *testing.T) {
+	e := &entry{}
+	now := time.Now()
+	for i := 0; i < 5; i++ {
+		if ev := e.observe(now, fmt.Errorf("Premiumize: %w", errDifferentTitle)); ev != nil && ev.State != "" {
+			t.Fatalf("paused after %d mismatches: %+v", i+1, ev)
+		}
+	}
+	if e.state != "" {
+		t.Fatalf("state %q after title mismatches", e.state)
 	}
 }
