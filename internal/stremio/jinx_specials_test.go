@@ -44,6 +44,15 @@ func TestSpecialInsideAPackTakesTheAddonsEpisode(t *testing.T) {
 	}
 }
 
+// Single-file torrents come with no file line: their name is checked.
+func TestSpecialDropsASingleFileTorrentNamedForAnotherNumber(t *testing.T) {
+	req := core.SearchRequest{Type: core.TypeEpisode, Title: "Haikyu!!", Season: 0, Episode: 8}
+	streams := []stream{{Title: "Haikyuu!!.S00E08.1080p.Blu-Ray.10-Bit.Dual-Audio.DTS-HD.x265-iAHD\n👤 9 💾 1.9 GB", InfoHash: "fedcba9876543210fedcba9876543210fedcba98"}}
+	if rels, _, _ := convertWith(streams, req, false, convertOptions{askedSpecial: 13}); len(rels) != 0 {
+		t.Fatalf("IMDb S00E08 kept for TMDB S00E08 asked as IMDb 13: %+v", rels[0].Name)
+	}
+}
+
 func TestSpecialDropsAFileThatNamesAnotherEpisode(t *testing.T) {
 	req := core.SearchRequest{Type: core.TypeEpisode, Title: "Show", Season: 0, Episode: 1}
 	streams := []stream{{
@@ -104,12 +113,12 @@ func TestSpecialIdentityRefusesFilesNumberedForAnotherSeasonOrEpisode(t *testing
 		want  bool // stamped S00E06
 	}{
 		{"Doctor.Who.2005.6x00.Un.Canto.Di.Natale.ITA.ENG.BDMux.XviD", 9, false}, // another season's special
-		{"Haikyuu!!.S00E08.1080p.Blu-Ray.x265", 13, false},                     // IMDb 8, asked 13
-		{"Haikyuu!!.S00E13.1080p.Blu-Ray.x265", 13, true},                      // the asked IMDb number
-		{"Show.S00E06.1080p", 0, true},                                         // not renumbered
+		{"Haikyuu!!.S00E08.1080p.Blu-Ray.x265", 13, false},                       // IMDb 8, asked 13
+		{"Haikyuu!!.S00E13.1080p.Blu-Ray.x265", 13, true},                        // the asked IMDb number
+		{"Show.S00E06.1080p", 0, true},                                           // not renumbered
 		{"[Erai-raws] Kuroko no Basket 3rd Season - 25.5 END [1080p]", 40, true}, // half episode
-		{"[Anime Time] Haikyuu!! OAD - Lev Appears!", 1, true},                 // named by title
-		{"Haikyuu!! OVA 02 - vs. Akaten (2016) [1080p RUS]", 3, true},           // OVA count, no season
+		{"[Anime Time] Haikyuu!! OAD - Lev Appears!", 1, true},                   // named by title
+		{"Haikyuu!! OVA 02 - vs. Akaten (2016) [1080p RUS]", 3, true},            // OVA count, no season
 	} {
 		info, keep := specialIdentity(core.ReleaseInfo{Seasons: []int{1, 2}}, req, false, c.file, "pack", c.asked)
 		got := keep && len(info.Seasons) == 1 && info.Seasons[0] == 0 && len(info.Episodes) == 1 && info.Episodes[0] == 6

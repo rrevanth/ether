@@ -2,6 +2,7 @@ package stremio
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
@@ -10,8 +11,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -179,17 +180,22 @@ var crossEpisode = regexp.MustCompile(`(?i)(?:^|[^a-z\d])(\d{1,2})x\d{2,3}(?:[^\
 // Half-episode numbering ("25.5", "13.5") is how specials are named, not a
 // season's episode.
 func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, file, torrent string, asked int) (core.ReleaseInfo, bool) {
-	if packs || req.Type != core.TypeEpisode || req.Season != 0 || req.Episode <= 0 || file == "" {
+	if packs || req.Type != core.TypeEpisode || req.Season != 0 || req.Episode <= 0 {
+		return info, true
+	}
+	// A single-file torrent has no file line: its own name is the file's.
+	named := cmp.Or(file, torrent)
+	if named == "" {
 		return info, true
 	}
 	want := req.Episode
 	if asked > 0 {
 		want = asked
 	}
-	if m := crossEpisode.FindStringSubmatch(file); m != nil && strings.TrimLeft(m[1], "0") != "" {
+	if m := crossEpisode.FindStringSubmatch(named); m != nil && strings.TrimLeft(m[1], "0") != "" {
 		return info, false
 	}
-	if f := releaseparse.Parse(file); len(f.Seasons) > 0 && !halfEpisode.MatchString(file) && !releaseparse.EpisodeMatches(f, 0, want) {
+	if f := releaseparse.Parse(named); len(f.Seasons) > 0 && !halfEpisode.MatchString(named) && !releaseparse.EpisodeMatches(f, 0, want) {
 		return info, false
 	}
 	info.Seasons, info.Episodes, info.FullSeason = []int{0}, []int{req.Episode}, false
