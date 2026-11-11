@@ -12,9 +12,9 @@ import (
 // also holds. Its own full-title release still matches.
 func TestAlternativeTitleNamingAnotherShowIsRejected(t *testing.T) {
 	asked := map[string]int{}
-	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(_ context.Context, _ core.RatingKey, title string) (bool, error) {
+	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(_ context.Context, _ core.RatingKey, title string) (bool, bool, error) {
 		asked[title]++
-		return title == "Ramayan", nil
+		return title == "Ramayan", title != "Ramayan", nil
 	}})
 	title := &core.Title{Type: core.TypeEpisode, Title: "The Echo Of Ayodhya", ShowKey: 2000000000339052, ShowTitle: "RAMAYAN AN ATHARV SRIVASTAVA SERIES", ShowYear: 2026,
 		ShowAlternativeTitles: []string{"RAMAYAN"}, Season: 1, Episode: 1}
@@ -32,20 +32,42 @@ func TestAlternativeTitleNamingAnotherShowIsRejected(t *testing.T) {
 	if got := s.rejectNamesake(withYear, title, sreq); got != "" {
 		t.Fatalf("release naming the show's year rejected: %q", got)
 	}
-	if asked["Ramayan"] != 1 || len(asked) != 1 {
-		t.Fatalf("catalogue asked %v, want once for Ramayan only", asked)
+	if asked["Ramayan"] != 1 || asked["RAMAYAN AN ATHARV SRIVASTAVA SERIES"] != 1 || len(asked) != 2 {
+		t.Fatalf("catalogue asked %v, want once each for Ramayan and the show's own title", asked)
 	}
 }
 
 // An alternative title that names no other show (a romanized original)
 // keeps matching.
 func TestAlternativeTitleWithoutNamesakeStillMatches(t *testing.T) {
-	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(context.Context, core.RatingKey, string) (bool, error) { return false, nil }})
+	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(context.Context, core.RatingKey, string) (bool, bool, error) { return false, true, nil }})
 	title := &core.Title{Type: core.TypeEpisode, ShowKey: 2000000000209867, ShowTitle: "Frieren: Beyond Journey's End", ShowAlternativeTitles: []string{"Sousou no Frieren"}, Season: 1, Episode: 3}
 	sreq := core.SearchRequest{Type: core.TypeEpisode, Title: title.ShowTitle, Season: 1, Episode: 3, AlternativeTitles: title.ShowAlternativeTitles}
 	r := withParsed(rel("f", "[SubsPlease] Sousou no Frieren - 03 (1080p) [ABCD1234].mkv", 1400))
 	s.prepareNamesakes(context.Background(), title, sreq, []core.Release{r})
 	if got := s.rejectNamesake(r, title, sreq); got != "" {
 		t.Fatalf("romanized title rejected: %q", got)
+	}
+}
+
+// Two shows titled "Ramayan": an unyeared release belongs to the 1987 one
+// (far more votes), so the 2008 show needs a year in the name.
+func TestSharedTitleUnyearedReleaseGoesToTheBetterKnownShow(t *testing.T) {
+	owner := map[core.RatingKey]bool{2000000000001990: true, 2000000000015620: false}
+	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(_ context.Context, show core.RatingKey, _ string) (bool, bool, error) {
+		return true, owner[show], nil
+	}})
+	pack := withParsed(rel("t", "Ramayan.S01E01.Birth.of.the.Four.Princes.1080p.DSNP+.WEB-DL.AAC2.0.x264-Telly", 1400))
+	yeared := withParsed(rel("y", "Ramayan (2008) S01E01 720p WEB-DL x264 AAC 2.0-JA", 700))
+	for show, wantPack := range map[core.RatingKey]string{2000000000001990: "", 2000000000015620: "unyeared title belongs to a better-known show"} {
+		title := &core.Title{Type: core.TypeEpisode, ShowKey: show, ShowTitle: "Ramayan", Season: 1, Episode: 1}
+		sreq := core.SearchRequest{Type: core.TypeEpisode, Title: "Ramayan", Season: 1, Episode: 1}
+		s.prepareNamesakes(context.Background(), title, sreq, []core.Release{pack, yeared})
+		if got := s.rejectNamesake(pack, title, sreq); got != wantPack {
+			t.Errorf("show %d: unyeared pack %q, want %q", show, got, wantPack)
+		}
+		if got := s.rejectNamesake(yeared, title, sreq); got != "" {
+			t.Errorf("show %d: yeared release rejected: %q", show, got)
+		}
 	}
 }

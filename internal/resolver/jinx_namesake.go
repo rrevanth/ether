@@ -4,40 +4,64 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/braedonsaunders/ether/internal/core"
 	"github.com/braedonsaunders/ether/internal/releaseparse"
 )
 
-// An alternative title can be another show's main title: TMDB lists plain
-// "RAMAYAN" for the 2026 "RAMAYAN AN ATHARV SRIVASTAVA SERIES", and
-// "Ramayan.S01E01-44" is the 1987 Ramayan. A yearless episode release with
-// no reported ids that matches only through an alternative title is that
-// other show's when the catalogue holds a different show whose own title it
-// is. The lookup mirrors series_year.go: once per show and title, cached,
-// before ranking; an unanswered lookup keeps the release (upstream's rule).
+// A yearless episode release with no reported ids names its show only by
+// title, and titles are shared. Two rules keep it with the show the name
+// means:
+//   - matched only through an alternative title that is a different show's
+//     own title, it is that show's: TMDB lists plain "RAMAYAN" for the 2026
+//     "RAMAYAN AN ATHARV SRIVASTAVA SERIES", and "Ramayan.S01E01-44" is the
+//     1987 Ramayan;
+//   - matched by a main title several shows share ("Ramayan" 1987 and 2008),
+//     it belongs to the one most TMDB voters know, as Sonarr maps an
+//     unyeared title; the others need a series year or ids in the release.
+// The lookups mirror series_year.go: once per show and title, cached, before
+// ranking; an unanswered lookup keeps the release (upstream's behaviour).
 
 const maxNamesakeLookups = 4
+
+type namesakeVerdict struct {
+	other bool // another show's own title is this one
+	owns  bool // of the shows titled this, the request's show is the best known
+	at    time.Time
+}
+
+type namesakes struct {
+	mu   sync.Mutex
+	seen map[string]namesakeVerdict
+}
 
 func namesakeKey(show core.RatingKey, title string) string {
 	return strconv.FormatInt(int64(show), 10) + "/" + strings.ToLower(strings.TrimSpace(title))
 }
 
-// altTitleOnly reports an episode release whose title matches the request
-// only through one of the show's alternative titles, with no series year in
-// its name and no reported ids to vouch for it.
-func altTitleOnly(rel core.Release, t *core.Title, sreq core.SearchRequest) bool {
+// unvouched reports an episode release with no series year in its name and
+// no reported ids: only its title says which show it is.
+func unvouched(rel core.Release, sreq core.SearchRequest) bool {
 	if sreq.Type != core.TypeEpisode || rel.Info.Title == "" {
 		return false
 	}
 	if idMatch, _ := releaseparse.CompareTitleIDs(rel.TitleIDs, sreq.IDs); idMatch {
 		return false
 	}
-	if releaseparse.EpisodeSeriesYear(rel.Name, rel.Info.Year) != 0 {
-		return false
-	}
-	if releaseparse.TitleMatches(rel.Info, sreq.Title) {
+	return releaseparse.EpisodeSeriesYear(rel.Name, rel.Info.Year) == 0
+}
+
+// mainTitleOnly reports an unvouched release named by the show's own title.
+func mainTitleOnly(rel core.Release, sreq core.SearchRequest) bool {
+	return unvouched(rel, sreq) && releaseparse.TitleMatches(rel.Info, sreq.Title)
+}
+
+// altTitleOnly reports an unvouched release whose title matches the request
+// only through one of the show's alternative titles.
+func altTitleOnly(rel core.Release, t *core.Title, sreq core.SearchRequest) bool {
+	if !unvouched(rel, sreq) || releaseparse.TitleMatches(rel.Info, sreq.Title) {
 		return false
 	}
 	if t != nil && t.ShowOriginalTitle != "" && releaseparse.TitleMatches(rel.Info, t.ShowOriginalTitle) {
@@ -58,7 +82,10 @@ func (s *Service) prepareNamesakes(ctx context.Context, t *core.Title, sreq core
 	}
 	titles := map[string]bool{}
 	for _, rel := range results {
-		if altTitleOnly(rel, t, sreq) {
+		switch {
+		case mainTitleOnly(rel, sreq):
+			titles[sreq.Title] = true
+		case altTitleOnly(rel, t, sreq):
 			titles[rel.Info.Title] = true
 		}
 	}
@@ -77,7 +104,7 @@ func (s *Service) prepareNamesakes(ctx context.Context, t *core.Title, sreq core
 		}
 		lookups++
 		lctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		conflict, err := s.titleNamesake(lctx, t.ShowKey, title)
+		other, owns, err := s.titleNamesake(lctx, t.ShowKey, title)
 		cancel()
 		if err != nil {
 			s.log.Debug("namesake lookup failed; keeping alternative-title matches", "show", t.ShowKey, "title", title, "err", err)
@@ -85,7 +112,7 @@ func (s *Service) prepareNamesakes(ctx context.Context, t *core.Title, sreq core
 		}
 		s.namesakes.mu.Lock()
 		if s.namesakes.seen == nil {
-			s.namesakes.seen = map[string]seriesYearVerdict{}
+			s.namesakes.seen = map[string]namesakeVerdict{}
 		}
 		if len(s.namesakes.seen) > 4096 {
 			for k, old := range s.namesakes.seen {
@@ -94,21 +121,31 @@ func (s *Service) prepareNamesakes(ctx context.Context, t *core.Title, sreq core
 				}
 			}
 		}
-		s.namesakes.seen[key] = seriesYearVerdict{conflict: conflict, at: now}
+		s.namesakes.seen[key] = namesakeVerdict{other: other, owns: owns, at: now}
 		s.namesakes.mu.Unlock()
 	}
 }
 
 // rejectNamesake is the ranking-time verdict of prepareNamesakes.
 func (s *Service) rejectNamesake(rel core.Release, t *core.Title, sreq core.SearchRequest) string {
-	if t == nil || !altTitleOnly(rel, t, sreq) {
+	if t == nil {
 		return ""
 	}
-	s.namesakes.mu.Lock()
-	v, ok := s.namesakes.seen[namesakeKey(t.ShowKey, rel.Info.Title)]
-	s.namesakes.mu.Unlock()
-	if ok && v.conflict && s.now().Sub(v.at) < seriesYearTTL {
-		return "title names another show"
+	verdict := func(title string) (namesakeVerdict, bool) {
+		s.namesakes.mu.Lock()
+		v, ok := s.namesakes.seen[namesakeKey(t.ShowKey, title)]
+		s.namesakes.mu.Unlock()
+		return v, ok && s.now().Sub(v.at) < seriesYearTTL
+	}
+	switch {
+	case mainTitleOnly(rel, sreq):
+		if v, ok := verdict(sreq.Title); ok && v.other && !v.owns {
+			return "unyeared title belongs to a better-known show"
+		}
+	case altTitleOnly(rel, t, sreq):
+		if v, ok := verdict(rel.Info.Title); ok && v.other {
+			return "title names another show"
+		}
 	}
 	return ""
 }

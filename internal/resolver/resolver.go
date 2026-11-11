@@ -85,8 +85,9 @@ type Options struct {
 	// show titled title that first aired in year (see series_year.go).
 	SeriesYearConflict func(ctx context.Context, show core.RatingKey, title string, year int) (bool, error)
 	// TitleNamesake reports whether the catalogue holds a different show
-	// whose own title is title (see jinx_namesake.go).
-	TitleNamesake func(ctx context.Context, show core.RatingKey, title string) (bool, error)
+	// whose own title is title, and whether show is the best known of the
+	// shows so titled (see jinx_namesake.go).
+	TitleNamesake func(ctx context.Context, show core.RatingKey, title string) (other, owns bool, err error)
 	// AnimeCour maps multi-cour TMDB anime season episodes to their cour
 	// and cour-relative episode number; nil disables cour mapping.
 	AnimeCour AnimeCour
@@ -214,8 +215,8 @@ type inflight struct {
 type Service struct {
 	years                     seriesYears
 	seriesYearConflict        func(ctx context.Context, show core.RatingKey, title string, year int) (bool, error)
-	namesakes                 seriesYears
-	titleNamesake             func(ctx context.Context, show core.RatingKey, title string) (bool, error)
+	namesakes                 namesakes
+	titleNamesake             func(ctx context.Context, show core.RatingKey, title string) (other, owns bool, err error)
 	animeCour                 AnimeCour
 	libProfiles               LibraryProfiles
 	availabilityGeneration    uint64
