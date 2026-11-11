@@ -96,3 +96,26 @@ func TestMatchSpecialRenumbersTMDBToIMDb(t *testing.T) {
 		}
 	}
 }
+
+func TestSpecialIdentityRefusesFilesNumberedForAnotherSeasonOrEpisode(t *testing.T) {
+	req := core.SearchRequest{Type: core.TypeEpisode, Title: "Show", Season: 0, Episode: 6}
+	for _, c := range []struct {
+		file  string
+		asked int
+		want  bool // stamped S00E06
+	}{
+		{"Doctor.Who.2005.6x00.Un.Canto.Di.Natale.ITA.ENG.BDMux.XviD", 9, false}, // another season's special
+		{"Haikyuu!!.S00E08.1080p.Blu-Ray.x265", 13, false},                     // IMDb 8, asked 13
+		{"Haikyuu!!.S00E13.1080p.Blu-Ray.x265", 13, true},                      // the asked IMDb number
+		{"Show.S00E06.1080p", 0, true},                                         // not renumbered
+		{"[Erai-raws] Kuroko no Basket 3rd Season - 25.5 END [1080p]", 40, true}, // half episode
+		{"[Anime Time] Haikyuu!! OAD - Lev Appears!", 1, true},                 // named by title
+		{"Haikyuu!! OVA 02 - vs. Akaten (2016) [1080p RUS]", 3, true},           // OVA count, no season
+	} {
+		info := specialIdentity(core.ReleaseInfo{Seasons: []int{1, 2}}, req, false, c.file, "pack", c.asked)
+		got := len(info.Seasons) == 1 && info.Seasons[0] == 0 && len(info.Episodes) == 1 && info.Episodes[0] == 6
+		if got != c.want {
+			t.Errorf("%q asked %d: stamped=%v, want %v", c.file, c.asked, got, c.want)
+		}
+	}
+}

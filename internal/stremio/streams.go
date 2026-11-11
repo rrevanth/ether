@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"regexp"
 	"strings"
 	"time"
 
@@ -159,19 +160,34 @@ func entryEpisodeIdentity(info core.ReleaseInfo, req core.SearchRequest, entryEp
 	return info
 }
 
+// halfEpisode is a special's "between episodes" number: "75.5", "- 13.5".
+var halfEpisode = regexp.MustCompile(`(?:^|[^\d.])\d{1,4}\.5(?:[^\d]|$)`)
+
+// crossEpisode is the "6x00" season-by-episode form the release parser
+// leaves alone when the episode is 00 (a season's own special).
+var crossEpisode = regexp.MustCompile(`(?i)(?:^|[^a-z\d])(\d{1,2})x\d{2,3}(?:[^\d]|$)`)
+
 // specialIdentity takes the add-on's word for a special's file. Asked for
 // one season-0 episode, an add-on that answers with a file (inside a pack
 // or alone) has matched that file to the episode; specials and OVAs are
 // named by title ("Lev Appears", "Tip Off") or by the season they
 // follow, so the torrent's own name ("S01-S04 + OVAs") never identifies them.
-// A file whose name numbers a different episode (by TMDB or the IMDb number
-// it was asked by) keeps its parsed identity.
+// A file whose name carries a season ("6x00", "S3 - 07") must be the
+// season-0 episode the add-on was asked for (IMDb's number for a renumbered
+// special); otherwise it keeps its parsed identity. Half-episode numbering
+// ("25.5", "13.5") is how specials are named, not a season's episode.
 func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, file, torrent string, asked int) core.ReleaseInfo {
 	if packs || req.Type != core.TypeEpisode || req.Season != 0 || req.Episode <= 0 || file == "" {
 		return info
 	}
-	f := releaseparse.Parse(file)
-	if len(f.Episodes) > 0 && !releaseparse.EpisodeMatches(f, 0, req.Episode) && (asked <= 0 || !releaseparse.EpisodeMatches(f, 0, asked)) {
+	want := req.Episode
+	if asked > 0 {
+		want = asked
+	}
+	if m := crossEpisode.FindStringSubmatch(file); m != nil && strings.TrimLeft(m[1], "0") != "" {
+		return info
+	}
+	if f := releaseparse.Parse(file); len(f.Seasons) > 0 && !halfEpisode.MatchString(file) && !releaseparse.EpisodeMatches(f, 0, want) {
 		return info
 	}
 	info.Seasons, info.Episodes, info.FullSeason = []int{0}, []int{req.Episode}, false
