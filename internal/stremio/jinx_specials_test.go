@@ -130,3 +130,17 @@ func TestSpecialIdentityRefusesFilesNumberedForAnotherSeasonOrEpisode(t *testing
 		}
 	}
 }
+
+func TestRenumberSpecialRewritesTheIMDbTag(t *testing.T) {
+	req := core.SearchRequest{Type: core.TypeEpisode, Season: 0, Episode: 4}
+	for in, want := range map[string]string{
+		"Haikyuu!!.S00E08.1080p.Blu-Ray.x265-iAHD":       "Haikyuu!!.S00E04.1080p.Blu-Ray.x265-iAHD",
+		"Haikyuu!! (2014) S0E8 1080p BluRay":             "Haikyuu!! (2014) S00E04 1080p BluRay",
+		"[sam] Haikyuu!! Land vs. Air - 01v3 [BD 1080p]": "[sam] Haikyuu!! Land vs. Air - 01v3 [BD 1080p]",
+		"Haikyuu!!.S00E18.1080p":                         "Haikyuu!!.S00E18.1080p",
+	} {
+		if got := renumberSpecial(in, 8, req); got != want {
+			t.Errorf("renumberSpecial(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

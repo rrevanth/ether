@@ -161,6 +161,17 @@ func entryEpisodeIdentity(info core.ReleaseInfo, req core.SearchRequest, entryEp
 	return info
 }
 
+// renumberSpecial rewrites a renumbered special's IMDb tag in the release
+// name ("S00E08", "S0E13") to the TMDB episode it was accepted for, so any
+// later reading of the name (a sibling episode's cached search) agrees.
+func renumberSpecial(name string, asked int, req core.SearchRequest) string {
+	if asked <= 0 || asked == req.Episode || req.Season != 0 {
+		return name
+	}
+	re := regexp.MustCompile(fmt.Sprintf(`(?i)\bS0{1,2}E0*%d\b`, asked))
+	return re.ReplaceAllString(name, fmt.Sprintf("S00E%02d", req.Episode))
+}
+
 // halfEpisode is a special's "between episodes" number: "75.5", "- 13.5".
 var halfEpisode = regexp.MustCompile(`(?:^|[^\d.])\d{1,4}\.5(?:[^\d]|$)`)
 

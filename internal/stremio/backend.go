@@ -395,6 +395,7 @@ func convertWith(streams []stream, req core.SearchRequest, packs bool, opts conv
 		if rel.Info, special = specialIdentity(rel.Info, req, packs, file, torrent, opts.askedSpecial); !special {
 			continue
 		}
+		rel.Name = renumberSpecial(rel.Name, opts.askedSpecial, req)
 		rel.DebridCached, rel.DebridUncached = debridHints(s.Name)
 		switch {
 		case hash != "":
