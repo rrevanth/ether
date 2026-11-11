@@ -104,6 +104,10 @@ type Release struct {
 	// Target narrows a multi-file release (a season pack) to the wanted
 	// episode; set by the resolver on candidates before fetching.
 	Target *ReleaseTarget `json:"target,omitempty"`
+	// FileName is the source's own name (base, no extension) for the wanted
+	// file inside a multi-file torrent: a Stremio add-on that was asked for
+	// this episode names the file it matched. The file choice prefers it.
+	FileName string `json:"fileName,omitempty"`
 	// DebridCached and DebridUncached name the debrid services (config
 	// Debrid* kinds) the source reported as holding, or not holding, the
 	// torrent, such as a Stremio addon's cached marker (additive). Hints

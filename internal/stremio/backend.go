@@ -154,7 +154,7 @@ func (b *Backend) Search(ctx context.Context, req core.SearchRequest, reserve fu
 	switch req.Type {
 	case core.TypeMovie:
 	case core.TypeEpisode, core.TypeSeason:
-		if req.Season <= 0 {
+		if !askableSeason(req) {
 			return nil, nil
 		}
 	default:
@@ -394,6 +394,9 @@ func convertWith(streams []stream, req core.SearchRequest, packs bool, opts conv
 			rel.GUID = "btih:" + hash + guidSuffix(s, req, packs)
 			rel.Protocol = core.ProtocolTorrent
 			rel.InfoHash = hash
+			if !packs && req.Type != core.TypeMovie {
+				rel.FileName = file
+			}
 			rel.MagnetURL = newznab.MagnetFor(hash, cmp.Or(torrent, name), streamTrackers(s))
 			if streamURL != "" && !packs {
 				rel.StreamURL, rel.StreamHeaders, rel.StreamOrigin = streamURL, s.requestHeaders(), opts.origin

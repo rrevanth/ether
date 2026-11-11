@@ -36,6 +36,9 @@ type ReleaseTarget struct {
 	Episode      int    `json:"episode,omitempty"`
 	ShowYear     int    `json:"showYear,omitempty"`
 	EpisodeTitle string `json:"episodeTitle,omitempty"`
+	// FileName is the source's name for the wanted file (Release.FileName),
+	// tried before name parsing when a torrent holds several videos.
+	FileName string `json:"fileName,omitempty"`
 	// PackID is the untargeted release ID of a FullSeason pack before
 	// TargetReleaseID derives the per-episode ID (additive).
 	PackID string `json:"packId,omitempty"`

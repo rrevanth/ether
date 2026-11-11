@@ -2310,10 +2310,11 @@ func withTarget(rel core.Release, sreq core.SearchRequest) core.Release {
 		target.AbsoluteEpisode = releaseparse.AnimeSearchEpisode(sreq)
 		target.Cour, target.CourEpisode = sreq.Cour, sreq.CourEpisode
 		target.ExpectedIDs, target.ReportedIDs = sreq.IDs, rel.TitleIDs
+		target.FileName = cmp.Or(rel.FileName, target.FileName)
 		rel.Target = &target
 		return rel // enrich cached identities without deriving their ID again
 	}
-	target := core.ReleaseTarget{AbsoluteEpisode: releaseparse.AnimeSearchEpisode(sreq), Cour: sreq.Cour, CourEpisode: sreq.CourEpisode, Season: sreq.Season, Episode: sreq.Episode, ShowYear: sreq.Year, EpisodeTitle: sreq.EpisodeTitle, ExpectedIDs: sreq.IDs, ReportedIDs: rel.TitleIDs}
+	target := core.ReleaseTarget{AbsoluteEpisode: releaseparse.AnimeSearchEpisode(sreq), Cour: sreq.Cour, CourEpisode: sreq.CourEpisode, Season: sreq.Season, Episode: sreq.Episode, ShowYear: sreq.Year, EpisodeTitle: sreq.EpisodeTitle, ExpectedIDs: sreq.IDs, ReportedIDs: rel.TitleIDs, FileName: rel.FileName}
 	if rel.Info.FullSeason {
 		target.PackID = rel.ID
 		rel.ID = core.TargetReleaseID(rel.ID, target)

@@ -678,9 +678,36 @@ func isExtra(p string) bool {
 	return false
 }
 
+// namedFile is the video the release's source named for the target episode
+// (core.ReleaseTarget.FileName): an add-on asked for exactly this episode
+// matched the file itself, which covers packs whose files carry no SxxExx
+// (anime OVAs and specials named by title, "25.5"). It must be the only
+// video with that base name.
+func namedFile(files []File, target *core.ReleaseTarget) (File, bool) {
+	if target == nil || target.Episode <= 0 || target.FileName == "" {
+		return File{}, false
+	}
+	want := strings.ToLower(target.FileName)
+	var hit File
+	n := 0
+	for _, f := range files {
+		base := path.Base(strings.ReplaceAll(f.Path, "\\", "/"))
+		if !isVideo(base) || isExtra(f.Path) || f.Size <= 0 {
+			continue
+		}
+		if strings.ToLower(strings.TrimSuffix(base, path.Ext(base))) == want {
+			hit, n = f, n+1
+		}
+	}
+	return hit, n == 1
+}
+
 // ChooseFile picks the main video file of a torrent: for a target episode
 // the largest file whose name matches it, else the largest video.
 func ChooseFile(files []File, target *core.ReleaseTarget) (File, error) {
+	if f, ok := namedFile(files, target); ok {
+		return f, nil
+	}
 	var videos []File
 	identityMismatch := false
 	for _, f := range files {

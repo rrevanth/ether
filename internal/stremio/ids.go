@@ -34,7 +34,7 @@ func LookupStreams(ctx context.Context, m Manifest, req core.SearchRequest, anim
 	switch {
 	case movie:
 	case req.Type == core.TypeEpisode || req.Type == core.TypeSeason:
-		if req.Season <= 0 {
+		if !askableSeason(req) {
 			return Lookup{}, false
 		}
 	default:
@@ -85,6 +85,14 @@ func LookupStreams(ctx context.Context, m Manifest, req core.SearchRequest, anim
 		return Lookup{Type: typ, ID: fmt.Sprintf("%s:%d:%d", db, id, episode), EntryEpisode: episode}, true
 	}
 	return Lookup{}, false
+}
+
+// askableSeason reports a series request an add-on can answer: any episode
+// or season of a numbered season, and a single special (season 0, the
+// numbering add-ons share with IMDb and TMDB). A whole "season 0" pack
+// means nothing to an add-on.
+func askableSeason(req core.SearchRequest) bool {
+	return req.Season > 0 || req.Season == 0 && req.Type == core.TypeEpisode && req.Episode > 0
 }
 
 // IMDbID normalises an IMDb id to "tt" + digits, or "".
