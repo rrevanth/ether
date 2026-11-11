@@ -121,6 +121,9 @@ func TestSpecialIdentityRefusesFilesNumberedForAnotherSeasonOrEpisode(t *testing
 		{"Haikyuu!! OVA 02 - vs. Akaten (2016) [1080p RUS]", 3, true},            // OVA count, no season
 	} {
 		info, keep := specialIdentity(core.ReleaseInfo{Seasons: []int{1, 2}}, req, false, c.file, "pack", c.asked)
+		if _, k := specialIdentity(core.ReleaseInfo{}, req, false, "A Christmas Carol", "Doctor.Who.2005.6x00.Un.Canto.Di.Natale.ITA", 9); k {
+			t.Error("a 6x00 torrent was kept for a season-0 special")
+		}
 		got := keep && len(info.Seasons) == 1 && info.Seasons[0] == 0 && len(info.Episodes) == 1 && info.Episodes[0] == 6
 		if !keep && c.want {
 			t.Errorf("%q asked %d: dropped", c.file, c.asked)

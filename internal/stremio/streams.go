@@ -203,8 +203,11 @@ func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, 
 	if asked > 0 {
 		want = asked
 	}
-	if m := crossEpisode.FindStringSubmatch(named); m != nil && strings.TrimLeft(m[1], "0") != "" {
-		return info, false
+	for _, n := range []string{file, torrent} {
+		// "6x00" names a later season's own special, in the file or the torrent.
+		if m := crossEpisode.FindStringSubmatch(n); m != nil && strings.TrimLeft(m[1], "0") != "" {
+			return info, false
+		}
 	}
 	if f := releaseparse.Parse(named); len(f.Seasons) > 0 && !halfEpisode.MatchString(named) && !releaseparse.EpisodeMatches(f, 0, want) {
 		return info, false
