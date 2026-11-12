@@ -413,7 +413,11 @@ func EpisodeMatches(parsed core.ReleaseInfo, season, episode int) bool {
 	if parsed.FullSeason || len(parsed.Episodes) == 0 {
 		return false
 	}
-	seasonOK := len(parsed.Seasons) == 0
+	// jinx: a number with no season never names a special (season 0): "Show
+	// - 05" or "Ep.001-165" are regular or recap episodes, and specials are
+	// numbered TMDB's own way. Specials match by an explicit S00Exx (add-on
+	// answers are stamped season 0 by the stremio backend).
+	seasonOK := len(parsed.Seasons) == 0 && season != 0
 	for _, s := range parsed.Seasons {
 		if s == season {
 			seasonOK = true

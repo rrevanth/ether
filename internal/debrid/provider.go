@@ -800,7 +800,7 @@ func ChooseFile(files []File, target *core.ReleaseTarget) (File, error) {
 	}
 	// Pass 2: classic pack numbering ("Season 2/05 - Title.mkv", "205 - Title.avi",
 	// or miniseries "Part 2 - Title.mkv") when no standard SxxExx matched.
-	if len(videos) > 1 {
+	if len(videos) > 1 && target.Season != 0 { // jinx: a bare "005 - Title" is never a special
 		for _, f := range videos {
 			if classicPackEpisodeMatches(f.Path, target.Season, target.Episode) {
 				return f, nil

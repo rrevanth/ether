@@ -65,3 +65,17 @@ func TestChooseFileIgnoresANamedFileOfAnotherEpisode(t *testing.T) {
 		t.Fatalf("ChooseFile = %q, %v; want episode 450", f.Path, err)
 	}
 }
+
+// A pack of regular episodes holds no special: "005 - ..." is episode 5.
+func TestChooseFileFindsNoSpecialInARegularPack(t *testing.T) {
+	files := []File{
+		{Path: "One Piece/001 - I'm Luffy.mkv", Size: 1 << 30},
+		{Path: "One Piece/005 - Fear, Mysterious Power.mkv", Size: 1 << 30},
+	}
+	if f, err := ChooseFile(files, &core.ReleaseTarget{Season: 0, Episode: 5}); err == nil {
+		t.Fatalf("S00E05 opened %q", f.Path)
+	}
+	if f, err := ChooseFile(append(files, File{Path: "One Piece/Specials/One Piece - S00E05 - Special.mkv", Size: 1 << 29}), &core.ReleaseTarget{Season: 0, Episode: 5}); err != nil || f.Path != "One Piece/Specials/One Piece - S00E05 - Special.mkv" {
+		t.Fatalf("explicit S00E05 file: %q, %v", f.Path, err)
+	}
+}

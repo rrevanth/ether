@@ -100,3 +100,24 @@ func TestRegionalDubLanguages(t *testing.T) {
 		}
 	}
 }
+
+// One Piece specials matched the "One Piece Log - Fish-Man Island" recap
+// episodes and a regular-episode batch by their bare numbers.
+func TestSeasonlessNumbersNeverNameASpecial(t *testing.T) {
+	for _, n := range []string{
+		"[Erai-raws] One Piece - Gyojin Tou-hen - 05 [1080p]",
+		"[Mega Pack] One.Piece.Ep.001-165.MULTi.1080p",
+		"[SubsPlease] One Piece Log - Fish-Man Island Saga - 07 (1080p)",
+	} {
+		i := Parse(n)
+		if EpisodeMatches(i, 0, 5) || EpisodeMatches(i, 0, 3) || EpisodeMatches(i, 0, 7) {
+			t.Errorf("%q matched a special", n)
+		}
+	}
+	if !EpisodeMatches(Parse("[A&C] One Piece - S00E02 - Movie 01 (BD 1080p)"), 0, 2) {
+		t.Error("an explicit S00E02 no longer matches the special")
+	}
+	if !EpisodeMatches(Parse("[SubsPlease] Show - 05 (1080p)"), 1, 5) {
+		t.Error("a seasonless number stopped matching a regular season")
+	}
+}
