@@ -1917,6 +1917,9 @@ func (s *Service) rejectReason(rel core.Release, t *core.Title, sreq core.Search
 	if reason := s.rejectNamesake(rel, t, sreq); reason != "" {
 		return reason
 	}
+	if reason := rejectSpecial(rel, sreq); reason != "" {
+		return reason
+	}
 	return rejectPolicy(rel, t, profile, caps, preferred, preferred && s.resolverCfg().OfferHigherVersions)
 }
 
@@ -1982,7 +1985,7 @@ func rejectIdentityYears(rel core.Release, t *core.Title, sreq core.SearchReques
 		if !releaseparse.SeriesYearMatches(releaseYear, sreq.Year) && (acceptYear == nil || !acceptYear(releaseYear)) {
 			return "series year mismatch"
 		}
-		if releaseYear == 0 && !idMatch && !localizedEpisodeTitle(rel.Info, t, catalogLang) && !episodeTitleMatchesRelease(rel, sreq.EpisodeTitle) {
+		if releaseYear == 0 && !idMatch && sreq.Season != 0 && !localizedEpisodeTitle(rel.Info, t, catalogLang) && !episodeTitleMatchesRelease(rel, sreq.EpisodeTitle) { // jinx: specials: jinx_specials.go
 			return "episode title mismatch"
 		}
 		if rel.Info.FullSeason {
