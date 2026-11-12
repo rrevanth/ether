@@ -35,3 +35,24 @@ func TestAgreeingTMDBOutweighsAnotherIMDbID(t *testing.T) {
 		t.Error("a lone different IMDb id did not conflict")
 	}
 }
+
+func TestAnimeAbsoluteNumberForms(t *testing.T) {
+	for name, want := range map[string]int{
+		"[A&C] One Piece S10E01 (0337) (WEB HEVC 1080p) [Multi-Audio-Subs]": 337,
+		"One Piece - 0459 v2 [F-R][9d4e6bc5]":                               459,
+		"[SubsPlease] One Piece - 1071 (1080p) [ABCD1234]":                  1071,
+		"Show S01E05 (2019) 1080p WEB-DL":                                   0,
+	} {
+		i := Parse(name)
+		got := 0
+		if len(i.AbsoluteEpisodes) == 1 {
+			got = i.AbsoluteEpisodes[0]
+		}
+		if got != want {
+			t.Errorf("%q: absolute %v (seasons %v episodes %v), want %d", name, i.AbsoluteEpisodes, i.Seasons, i.Episodes, want)
+		}
+	}
+	if i := Parse("[A&C] One Piece S10E01 (0337) (WEB HEVC 1080p)"); len(i.Seasons) != 1 || i.Seasons[0] != 10 || i.Episodes[0] != 1 {
+		t.Errorf("S10E01 lost: seasons %v episodes %v", i.Seasons, i.Episodes)
+	}
+}

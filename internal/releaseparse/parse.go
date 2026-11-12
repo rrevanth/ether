@@ -31,8 +31,10 @@ var (
 	reEpRange              = regexp.MustCompile(`(?i)E(\d{1,3})`)
 	// Anime absolute numbering and "Season N - EE" (parseAbsoluteEpisode,
 	// parseSeasonDashEpisode).
-	reAbsoluteBracket     = regexp.MustCompile(`(?i)(?:^|\s)-\s+(\d{1,4})(?:v\d{1,2})?(?:\s*[\[(]|\s*$|\s+(?:END|FINAL)\b)`)
-	reAbsoluteTag         = regexp.MustCompile(`(?i)\s-\s(\d{1,4})(?:v\d{1,2})?`)
+	reAbsoluteBracket = regexp.MustCompile(`(?i)(?:^|\s)-\s+(\d{1,4})(?:\s?v\d{1,2})?(?:\s*[\[(]|\s*$|\s+(?:END|FINAL)\b)`) // jinx: "- 0459 v2 [F-R]"
+	reAbsoluteTag     = regexp.MustCompile(`(?i)\s-\s(\d{1,4})(?:\s?v\d{1,2})?`)
+	// jinx: a season episode followed by its series-start number, "S10E01 (0337)".
+	reSEAbsoluteParen     = regexp.MustCompile(`(?i)\bS\d{1,3}\s*E\d{1,4}\s*\((\d{2,4})\)`)
 	reDashNumber          = regexp.MustCompile(`\s-\s(\d{1,4})(?:v\d{1,2})?\b`)
 	reSeasonShortDashEp   = regexp.MustCompile(`(?i)\bS(\d{1,2})\s+-\s+(\d{1,4})(?:v\d{1,2})?\b`)
 	reSeasonDashEp        = regexp.MustCompile(`(?i)\b(?:Season|Saison|Stagione|Temporada)\s*(\d{1,2})\s+-\s+(\d{1,4})(?:v\d{1,2})?\b`)
@@ -124,6 +126,11 @@ func Parse(name string) core.ReleaseInfo {
 	}
 	if markerAt < 0 && leadingEpisode > 0 {
 		info.Episodes = []int{leadingEpisode}
+	}
+	if m := reSEAbsoluteParen.FindStringSubmatch(normStem); m != nil && len(info.Episodes) == 1 && len(info.AbsoluteEpisodes) == 0 {
+		if n, _ := strconv.Atoi(m[1]); n > 0 && !(len(m[1]) == 4 && n >= 1888 && n <= 2100) {
+			info.AbsoluteEpisodes = []int{n}
+		}
 	}
 	if abs, at := absolute, absoluteAt; abs > 0 && len(info.Seasons) == 0 {
 		// Anime numbers episodes from the series start ("Show - 1071");
