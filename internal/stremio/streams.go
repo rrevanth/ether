@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/braedonsaunders/ether/internal/animemap"
 	"github.com/braedonsaunders/ether/internal/core"
@@ -214,7 +215,38 @@ func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, 
 	}
 	info.Seasons, info.Episodes, info.FullSeason = []int{0}, []int{req.Episode}, false
 	info.AbsoluteEpisodes = nil
+	// Asked by this show's id, the add-on answered with a collection named
+	// for it ("[Anime Time] One Piece (0001-1071+Movies+Specials)", "One
+	// Piece Special - Episode of Luffy"): the parsed title carries the
+	// collection's words, but the release is the show's.
+	if !releaseparse.TitleMatches(info, req.Title) && (startsWithShow(torrent, req) || startsWithShow(file, req)) {
+		info.Title = req.Title
+	}
 	return info, true
+}
+
+// startsWithShow reports a name that begins (after a "[Group]" tag) with one
+// of the request's show titles, as whole words.
+func startsWithShow(name string, req core.SearchRequest) bool {
+	norm := func(s string) string {
+		s = strings.NewReplacer("'", "", "’", "").Replace(strings.ToLower(s))
+		return strings.Join(strings.FieldsFunc(s, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }), " ")
+	}
+	n := strings.TrimSpace(name)
+	for strings.HasPrefix(n, "[") {
+		if i := strings.Index(n, "]"); i > 0 {
+			n = strings.TrimSpace(n[i+1:])
+		} else {
+			break
+		}
+	}
+	n = norm(n) + " "
+	for _, t := range append([]string{req.Title, req.OriginalTitle}, req.AlternativeTitles...) {
+		if t = norm(t); t != "" && strings.HasPrefix(n, t+" ") {
+			return true
+		}
+	}
+	return false
 }
 
 // FetchNZB implements newznab.Backend for an addon's Usenet streams: it

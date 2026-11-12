@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/braedonsaunders/ether/internal/core"
+	"github.com/braedonsaunders/ether/internal/releaseparse"
 )
 
 func TestAskableSeasonTakesSingleSpecials(t *testing.T) {
@@ -145,5 +146,27 @@ func TestRenumberSpecialRewritesTheIMDbTag(t *testing.T) {
 		if got := renumberSpecial(in, 8, req); got != want {
 			t.Errorf("renumberSpecial(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// Asked for One Piece's IMDb special 24, Torrentio answers with Anime Time's
+// complete collection and names the Episode of Luffy file.
+func TestSpecialFromAShowCollectionKeepsTheShowTitle(t *testing.T) {
+	req := core.SearchRequest{Type: core.TypeEpisode, Title: "One Piece", Season: 0, Episode: 8}
+	idx := 1503
+	streams := []stream{{
+		Title:    "One Piece (0001-1071 Movies Specials) [BD CR] [Dual Audio] [1080p][HEVC 10bit x265]\n[Anime Time] One Piece Special - Episode of Luffy.mkv\n👤 40 💾 1.4 GB",
+		InfoHash: "1e15b9b47b0123456789abcdef0123456789abcd",
+		FileIdx:  &idx,
+	}}
+	rels, _, _ := convertWith(streams, req, false, convertOptions{askedSpecial: 24})
+	if len(rels) != 1 {
+		t.Fatalf("releases %d", len(rels))
+	}
+	if !releaseparse.TitleMatches(rels[0].Info, "One Piece") || rels[0].FileName != "[Anime Time] One Piece Special - Episode of Luffy" {
+		t.Fatalf("title %q file %q", rels[0].Info.Title, rels[0].FileName)
+	}
+	if startsWithShow("[Group] One Pieceful Life S00E01", req) {
+		t.Error("a longer word passed as the show title")
 	}
 }
