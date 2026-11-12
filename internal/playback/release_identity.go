@@ -43,12 +43,23 @@ func payloadMatchesTitle(nzb []byte, title *core.Title) bool {
 		baseInfo.Seasons = fullInfo.Seasons
 	}
 	if len(baseInfo.Episodes) > 0 {
-		return releaseparse.EpisodeMatches(baseInfo, season, episode)
+		return episodeIdentity(baseInfo, season, episode, title.AbsoluteEpisode)
 	}
 	if len(fullInfo.Episodes) > 0 {
-		return releaseparse.EpisodeMatches(fullInfo, season, episode)
+		return episodeIdentity(fullInfo, season, episode, title.AbsoluteEpisode)
 	}
 	return true
+}
+
+// episodeIdentity is the resolver's episode match (resolver.go
+// episodeMatchesRequest): the season's episode, or the absolute number a
+// long anime names ("S07E12 (0207)", "S01E1121") (jinx).
+func episodeIdentity(info core.ReleaseInfo, season, episode, absolute int) bool {
+	if releaseparse.EpisodeMatches(info, season, episode) || releaseparse.EpisodeMatchesAbsolute(info, absolute) {
+		return true
+	}
+	return absolute > 0 && len(info.Seasons) == 1 && len(info.Episodes) == 1 && !info.FullSeason &&
+		info.Episodes[0] == absolute && (info.Seasons[0] == 1 || absolute >= 100)
 }
 
 // releaseMatchesTitle applies the same episode identity constraints to fresh,
@@ -96,7 +107,7 @@ func releaseMatchesTitle(rel core.Release, title *core.Title) bool {
 					return false
 				}
 			}
-		} else if !releaseparse.EpisodeMatches(info, season, episode) {
+		} else if !episodeIdentity(info, season, episode, title.AbsoluteEpisode) {
 			return false
 		}
 	}
