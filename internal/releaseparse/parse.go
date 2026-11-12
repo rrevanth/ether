@@ -13,9 +13,11 @@ import (
 )
 
 var (
-	reYear                 = regexp.MustCompile(`\b(188[89]|189\d|19\d{2}|20\d{2})\b`)
-	reTemporadaSE          = regexp.MustCompile(`(?i)(^|[^\p{L}\p{N}])T(\d{1,2})E(\d{1,3})\b`)
-	reSE                   = regexp.MustCompile(`(?i)\bS(\d{1,2})[\s\p{So}\x{FE0F}\x{200D}-]*E(\d{1,3})((?:\s*E\d{1,3})*)(?:\s*-\s*E?(\d{1,3}))?(?:v(\d))?\b`)
+	reYear        = regexp.MustCompile(`\b(188[89]|189\d|19\d{2}|20\d{2})\b`)
+	reTemporadaSE = regexp.MustCompile(`(?i)(^|[^\p{L}\p{N}])T(\d{1,2})E(\d{1,3})\b`)
+	// jinx: three-digit seasons and four-digit episodes (One Piece "S22E1100",
+	// Netflix "S008E240").
+	reSE                   = regexp.MustCompile(`(?i)\bS(\d{1,3})[\s\p{So}\x{FE0F}\x{200D}-]*E(\d{1,4})((?:\s*E\d{1,4})*)(?:\s*-\s*E?(\d{1,4}))?(?:v(\d))?\b`)
 	reSpanishCapUnderscore = regexp.MustCompile(`(?i)\b(Cap(?:[ií]tulo)?[.\s]*\d{1,4})_(\d{1,4})\b`)
 	reSpanishEpisode       = regexp.MustCompile(`(?i)\b(?:Cap|Cap[ií]tulo)\s*(\d{3,4})(?:\s*(?:-|al|a)\s*(?:Cap(?:[ií]tulo)?\s*)?(\d{1,4}))?\b`)
 	reSpanishShortEpisode  = regexp.MustCompile(`(?i)\b(?:Cap|Cap[ií]tulo)\s*0?([1-9]\d?)(?:\s*(?:-|al|a)\s*(?:Cap(?:[ií]tulo)?\s*)?0?([1-9]\d?))?\b`)
