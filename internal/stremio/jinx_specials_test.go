@@ -170,3 +170,13 @@ func TestSpecialFromAShowCollectionKeepsTheShowTitle(t *testing.T) {
 		t.Error("a longer word passed as the show title")
 	}
 }
+
+// Torrentio mapped a Dr. Chopper special (2025) into a 1999-2014 season-16 pack.
+func TestSpecialFromARegularSeasonPackIsDropped(t *testing.T) {
+	req := core.SearchRequest{Type: core.TypeEpisode, Title: "One Piece", Season: 0, Episode: 39}
+	idx := 12
+	streams := []stream{{Title: "One.Piece.S16E579-603.1999-2014.Mkv.BDMux.1080p.Ita.Jap.Ac3.Subs.ProgettoOnePiece\nOne Piece 0590 Il ritorno.mkv\n👤 3 💾 900 MB", InfoHash: "84dd9e38080123456789abcdef0123456789abcd", FileIdx: &idx}}
+	if rels, _, _ := convertWith(streams, req, false, convertOptions{askedSpecial: 63}); len(rels) != 0 {
+		t.Fatalf("kept %q", rels[0].Name)
+	}
+}

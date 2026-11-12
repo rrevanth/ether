@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -209,6 +210,13 @@ func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, 
 		if m := crossEpisode.FindStringSubmatch(n); m != nil && strings.TrimLeft(m[1], "0") != "" {
 			return info, false
 		}
+	}
+	// A torrent of regular seasons ("One.Piece.S16E579-603") with nothing
+	// marking specials, in its name or the file's, holds none: the add-on's
+	// match is a mistake.
+	if t := releaseparse.Parse(torrent); len(t.Seasons) > 0 && !slices.Contains(t.Seasons, 0) &&
+		!releaseparse.NamesSpecial(torrent) && !releaseparse.NamesSpecial(file) {
+		return info, false
 	}
 	if f := releaseparse.Parse(named); len(f.Seasons) > 0 && !halfEpisode.MatchString(named) && !releaseparse.EpisodeMatches(f, 0, want) {
 		return info, false

@@ -92,3 +92,15 @@ func TestSpecialFileWithPartialTitlePasses(t *testing.T) {
 		t.Fatal("a file naming another special was chosen")
 	}
 }
+
+// "One Piece - S00E01 ... (FUNi)" whose only file is "One Piece - 01": no special.
+func TestSpecialRefusesARegularNumberedFile(t *testing.T) {
+	files := []File{{Path: "One Piece - 01 - 1080p WEB H.264 -NanDesuKa (FUNi).mkv", Size: 1 << 30}}
+	if f, err := ChooseFile(files, &core.ReleaseTarget{Season: 0, Episode: 1}); err == nil {
+		t.Fatalf("opened %q for S00E01", f.Path)
+	}
+	ok := []File{{Path: "One Piece/Specials/One Piece - 01 - Episode of Nami.mkv", Size: 1 << 30}}
+	if _, err := ChooseFile(ok, &core.ReleaseTarget{Season: 0, Episode: 1}); err == errNoVideo {
+		t.Fatal("a file in a Specials folder was dropped")
+	}
+}
