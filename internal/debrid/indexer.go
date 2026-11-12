@@ -476,7 +476,7 @@ func (x *Indexer) fetchTorrentOnce(ctx context.Context, r core.Release) (data []
 	reused := false
 	defer func() {
 		x.svc.log.Info("debrid payload prepared", "release", r.ID, "reused", reused,
-			"descriptor", descriptor, "provider", provider, "took", time.Since(started), "success", err == nil)
+			"descriptor", descriptor, "provider", provider, "took", time.Since(started), "success", err == nil, "err", err) // jinx: say why
 	}()
 	if p, ok := x.svc.reusablePayload(ctx, r); ok {
 		reused = true
