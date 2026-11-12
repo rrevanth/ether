@@ -259,6 +259,7 @@ func (c *Catalog) storeShowDetails(ctx context.Context, t core.Title, d *tmdb.TV
 		}
 		seasons = append(seasons, seasonToTitle(t, s))
 	}
+	c.datedSummaries(ctx, t, d, seasons) // jinx_season_dates.go
 	// Upsert show as detail; seasons as non-detail summaries in same call would
 	// mark them detail too, so split.
 	if err := c.writeDetail(ctx, t, upsertOpts{browsable: c.meetsThreshold(t), detail: true}, extra...); err != nil {
@@ -428,6 +429,7 @@ func (c *Catalog) fetchSeasonOpts(ctx context.Context, showID int64, season int,
 			eps = append(eps, episodeToTitle(*show, seasonName, e))
 		}
 		seasonT.ChildCount = len(eps)
+		seasonT = datedFromEpisodes(seasonT, eps) // jinx_season_dates.go
 		if err := c.upsert(ctx, seasonT, upsertOpts{detail: true}); err != nil {
 			return err
 		}
