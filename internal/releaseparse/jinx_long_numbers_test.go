@@ -1,6 +1,10 @@
 package releaseparse
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/braedonsaunders/ether/internal/core"
+)
 
 func TestLongSeasonAndEpisodeNumbers(t *testing.T) {
 	for name, want := range map[string][2]int{
@@ -16,5 +20,18 @@ func TestLongSeasonAndEpisodeNumbers(t *testing.T) {
 	}
 	if i := Parse("Show.S01E01.1080p.BluRay"); len(i.Episodes) != 1 || i.Episodes[0] != 1 || i.Height != 1080 {
 		t.Errorf("S01E01 1080p parsed episodes %v height %d", i.Episodes, i.Height)
+	}
+}
+
+func TestAgreeingTMDBOutweighsAnotherIMDbID(t *testing.T) {
+	want := core.IDs{TMDB: 37854, TVDB: 81797, IMDB: "tt0388629"}
+	if m, c := CompareTitleIDs(core.IDs{TMDB: 37854, TVDB: 81797, IMDB: "tt3354352"}, want); !m || c {
+		t.Errorf("Anime Tosho's One Piece ids: matched %v conflicting %v", m, c)
+	}
+	if _, c := CompareTitleIDs(core.IDs{TMDB: 111110, IMDB: "tt0388629"}, want); !c {
+		t.Error("a different TMDB id did not conflict")
+	}
+	if _, c := CompareTitleIDs(core.IDs{IMDB: "tt3354352"}, want); !c {
+		t.Error("a lone different IMDb id did not conflict")
 	}
 }

@@ -2105,7 +2105,19 @@ func episodeMatchesRequest(info core.ReleaseInfo, sreq core.SearchRequest) bool 
 		return false
 	}
 	return releaseparse.EpisodeMatches(info, sreq.Season, sreq.Episode) ||
-		releaseparse.EpisodeMatchesAbsolute(info, absoluteEpisode(sreq))
+		releaseparse.EpisodeMatchesAbsolute(info, absoluteEpisode(sreq)) ||
+		absoluteAsSeasonEpisode(info, absoluteEpisode(sreq))
+}
+
+// absoluteAsSeasonEpisode is an anime release writing the series-start number
+// as an episode of one season: "One Piece S01E1121", or TVDB's "S14E1121",
+// for absolute episode 1121. Season 1's numbers are absolute anyway; past
+// 99 no season's own numbering reaches (jinx).
+func absoluteAsSeasonEpisode(info core.ReleaseInfo, abs int) bool {
+	if abs <= 0 || len(info.Seasons) != 1 || len(info.Episodes) != 1 || info.FullSeason || info.Episodes[0] != abs {
+		return false
+	}
+	return info.Seasons[0] == 1 || abs >= 100
 }
 
 func packCoversSeasonCour(info core.ReleaseInfo, sreq core.SearchRequest) bool {

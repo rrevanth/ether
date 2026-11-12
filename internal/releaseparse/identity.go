@@ -28,6 +28,12 @@ func CompareTitleIDs(reported, expected core.IDs) (matched, conflicting bool) {
 	}
 	a, b := normalize(reported.IMDB), normalize(expected.IMDB)
 	if a != "" && b != "" {
+		// jinx: indexers often report an episode's or a related entry's IMDb
+		// id (Anime Tosho gives One Piece tt3354352, the series is tt0388629).
+		// Agreeing TMDB/TVDB ids decide; IMDb alone still can.
+		if matched && !conflicting {
+			return true, false
+		}
 		matched = matched || a == b
 		conflicting = conflicting || a != b
 	}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/braedonsaunders/ether/internal/core"
+	"github.com/braedonsaunders/ether/internal/releaseparse"
 )
 
 // The 2026 animated series' TMDB alternative title is plain "RAMAYAN"; a
@@ -172,5 +173,24 @@ func TestPlayVersionsLeaveOutAmbiguousReleases(t *testing.T) {
 	}
 	if got := withoutAmbiguous([]candidate{b}); len(got) != 1 {
 		t.Fatal("the only release was dropped")
+	}
+}
+
+func TestAbsoluteNumberWrittenAsSeasonEpisode(t *testing.T) {
+	sreq := core.SearchRequest{Type: core.TypeEpisode, Title: "One Piece", Season: 22, Episode: 1121, AbsoluteEpisode: 1121, Anime: true}
+	for name, want := range map[string]bool{
+		"ONE.PIECE.S01E1121.1080p.NF.WEB-DL.AAC2.0.H.264-VARYG.mkv": true,
+		"[ToonsHub] One Piece S14E1121 1080p CR WEB-DL AAC2.0":      true,
+		"One Piece S01E1120 1080p":                                  false,
+		"One Piece S22E1121 1080p":                                  true,
+	} {
+		if got := episodeMatchesRequest(releaseparse.Parse(name), sreq); got != want {
+			t.Errorf("%q: %v, want %v", name, got, want)
+		}
+	}
+	// Not anime-absolute: S02E05 of a show whose first season has 25 episodes.
+	s2 := core.SearchRequest{Type: core.TypeEpisode, Season: 2, Episode: 5, AbsoluteEpisode: 30}
+	if !episodeMatchesRequest(releaseparse.Parse("Show S01E30 1080p"), s2) || episodeMatchesRequest(releaseparse.Parse("Show S03E30 1080p"), s2) {
+		t.Error("season-1 absolute accepted / another season's E30 rejected incorrectly")
 	}
 }
