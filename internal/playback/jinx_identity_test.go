@@ -42,8 +42,8 @@ func TestPlaybackLeavesSpecialTitlesToTheResolver(t *testing.T) {
 func TestSpecialPayloadInACollectionFolderOpens(t *testing.T) {
 	special := &core.Title{Type: core.TypeEpisode, Season: 0, Episode: 8, Title: "Episode of Luffy: Adventure on Hand Island"}
 	ok := payloadMatchesTitle([]byte(debridPayloadPrefix+`{"path":"One Piece (0001-1071 Movies Specials) [BD CR]/Specials/[Anime Time] One Piece Special - Episode of Luffy.mkv"}`), special)
-	wrong := payloadMatchesTitle([]byte(debridPayloadPrefix+`{"path":"Specials/One Piece - S00E09 - Glorious Island.mkv"}`), special)
-	if !ok || wrong {
-		t.Fatalf("collection file %v, other special's file %v", ok, wrong)
+	imdb := payloadMatchesTitle([]byte(debridPayloadPrefix+`{"path":"One.Piece.S00E24.Episode.of.Luffy.1080p.mkv"}`), special)
+	if !ok || !imdb {
+		t.Fatalf("collection file %v, add-on-numbered file %v", ok, imdb)
 	}
 }

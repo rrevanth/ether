@@ -711,6 +711,12 @@ func namedFile(files []File, target *core.ReleaseTarget) (File, bool) {
 	// The add-on numbers episodes its own way (IMDb's, not TMDB's): a named
 	// file whose own name numbers another episode is not this one, and the
 	// usual name matching decides instead.
+	// A special's file named by an add-on asked for exactly that special
+	// carries the add-on's own numbering (IMDb's "S00E14" for TMDB's S00E05):
+	// trust it (the stremio backend already dropped numbers that clash).
+	if target.Season == 0 {
+		return hit, true
+	}
 	info := releaseparse.Parse(path.Base(strings.ReplaceAll(hit.Path, "\\", "/")))
 	if len(info.Episodes) > 0 || len(info.AbsoluteEpisodes) > 0 {
 		abs := target.AbsoluteEpisode

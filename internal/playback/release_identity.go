@@ -39,12 +39,10 @@ func payloadMatchesTitle(nzb []byte, title *core.Title) bool {
 	normPath := strings.ReplaceAll(p.Path, "\\", "/")
 	baseInfo := releaseparse.Parse(path.Base(normPath))
 	if season == 0 {
-		// jinx: a special's file was picked by the add-on's file pointer or
-		// its title; only the file's own S00Exx can contradict it, not a
-		// folder's or batch's seasonless range ("0001-1071").
-		if len(baseInfo.Seasons) > 0 && len(baseInfo.Episodes) > 0 {
-			return releaseparse.EpisodeMatches(baseInfo, season, episode)
-		}
+		// jinx: a special's file was picked by debrid ChooseFile: by the
+		// add-on's own file pointer, whose numbering is the add-on's (IMDb's
+		// "S00E14" for TMDB's S00E05), or by an explicit S00Exx. Neither its
+		// number nor a folder's seasonless range ("0001-1071") can judge it.
 		return true
 	}
 	fullInfo := releaseparse.Parse(strings.ReplaceAll(normPath, "/", " "))

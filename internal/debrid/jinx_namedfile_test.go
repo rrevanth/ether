@@ -104,3 +104,13 @@ func TestSpecialRefusesARegularNumberedFile(t *testing.T) {
 		t.Fatal("a file in a Specials folder was dropped")
 	}
 }
+
+// IMDb numbers One Piece's "Detective Memoirs" special 14, TMDB 5: the
+// add-on's named file opens for TMDB's S00E05.
+func TestSpecialNamedFileKeepsTheAddonsNumbering(t *testing.T) {
+	files := []File{{Path: "One.Piece.S00E14.The.Detective.Memoirs.of.Chief.Straw.Hat.Luffy.1080p.mkv", Size: 1 << 30}}
+	f, err := ChooseFile(files, &core.ReleaseTarget{Season: 0, Episode: 5, FileName: "One.Piece.S00E14.The.Detective.Memoirs.of.Chief.Straw.Hat.Luffy.1080p"})
+	if err != nil || f.Path != files[0].Path {
+		t.Fatalf("ChooseFile = %q, %v", f.Path, err)
+	}
+}
