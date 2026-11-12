@@ -473,7 +473,9 @@ func HasUsableInfo(info core.ReleaseInfo) bool {
 // number counted from the series start is absolute: an anime release
 // numbered that way ("Show - 1071") and naming no season.
 func EpisodeMatchesAbsolute(parsed core.ReleaseInfo, absolute int) bool {
-	if absolute <= 0 || parsed.FullSeason || len(parsed.Seasons) > 0 {
+	// jinx: a name with a season carries an absolute number only when it
+	// spells both out ("S07E12 (0207)"), so no season guard is needed.
+	if absolute <= 0 || parsed.FullSeason {
 		return false
 	}
 	for _, e := range parsed.AbsoluteEpisodes {

@@ -73,3 +73,13 @@ func TestAbsoluteNumberIsNotAnEpisodeTitle(t *testing.T) {
 		t.Error("a real contradicting title after the number was ignored")
 	}
 }
+
+func TestSeasonEpisodeWithAbsoluteMatchesTheAbsolute(t *testing.T) {
+	i := Parse("[A&C] One Piece S07E12 (0207) (WEB HEVC 1080p) [Multi-Audio-Subs]")
+	if !EpisodeMatchesAbsolute(i, 207) || EpisodeMatchesAbsolute(i, 12) {
+		t.Errorf("S07E12 (0207): abs 207 %v, abs 12 %v", EpisodeMatchesAbsolute(i, 207), EpisodeMatchesAbsolute(i, 12))
+	}
+	if EpisodeMatchesAbsolute(Parse("Show S07E12 1080p"), 207) {
+		t.Error("a plain S07E12 matched absolute 207")
+	}
+}
