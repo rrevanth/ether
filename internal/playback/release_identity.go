@@ -117,7 +117,7 @@ func releaseMatchesTitle(rel core.Release, title *core.Title) bool {
 	}
 	year := releaseparse.EpisodeSeriesYear(rel.Name, rel.Info.Year)
 	if !releaseparse.SeriesYearMatches(year, title.ShowYear) ||
-		(year == 0 && !idMatch && season != 0 && !releaseparse.EpisodeTitleMatches(rel.Name, title.Title)) { // jinx: specials' titles are judged by the resolver (jinx_specials.go)
+		(year == 0 && !idMatch && !(season == 0 && episode > 0) && !releaseparse.EpisodeTitleMatches(rel.Name, title.Title)) { // jinx: specials' titles are judged by the resolver (jinx_specials.go)
 		return false
 	}
 	// A torrent descriptor embeds the expected identity for file selection.
