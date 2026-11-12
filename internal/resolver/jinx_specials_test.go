@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/braedonsaunders/ether/internal/core"
+	"github.com/braedonsaunders/ether/internal/releaseparse"
 )
 
 // Real One Piece special candidates (TMDB season 0), plus specials of other
@@ -31,7 +32,7 @@ func TestSpecialsMustNameThemselvesAndAgree(t *testing.T) {
 	} {
 		r := withParsed(rel("x", c.name, 1400))
 		if got := rejectSpecial(r, c.req); got != c.want {
-			t.Errorf("%q: %q, want %q (title %q)", c.name, got, c.want, specialReleaseTitle(c.name))
+			t.Errorf("%q: %q, want %q (title %q)", c.name, got, c.want, releaseparse.SpecialReleaseTitle(c.name))
 		}
 	}
 	// Regular episodes are untouched.

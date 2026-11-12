@@ -912,5 +912,11 @@ func fileIdentityMatches(f File, target *core.ReleaseTarget) bool {
 	full := strings.NewReplacer("/", " ", "\\", " ").Replace(f.Path)
 	info := releaseparse.Parse(full)
 	year := releaseparse.EpisodeSeriesYear(full, info.Year)
-	return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.EpisodeTitleMatches(path.Base(strings.ReplaceAll(f.Path, "\\", "/")), target.EpisodeTitle))
+	base := path.Base(strings.ReplaceAll(f.Path, "\\", "/"))
+	if target.Season == 0 && target.Episode > 0 {
+		// jinx: a special's file title is judged like its release's
+		// (releaseparse.SpecialTitleAgrees); the resolver chose the release.
+		return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.SpecialTitleAgrees(base, target.EpisodeTitle))
+	}
+	return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.EpisodeTitleMatches(base, target.EpisodeTitle))
 }

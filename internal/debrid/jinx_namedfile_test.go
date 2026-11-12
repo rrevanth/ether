@@ -79,3 +79,16 @@ func TestChooseFileFindsNoSpecialInARegularPack(t *testing.T) {
 		t.Fatalf("explicit S00E05 file: %q, %v", f.Path, err)
 	}
 }
+
+// A special's pack file named with a partial title is the special.
+func TestSpecialFileWithPartialTitlePasses(t *testing.T) {
+	f := File{Path: "One Piece/Specials/One.Piece.S00E08.Episode.of.Luffy.CUSTOM.MULTi.1080p.BDRip.x264.mkv", Size: 1 << 30}
+	target := &core.ReleaseTarget{Season: 0, Episode: 8, EpisodeTitle: "Episode of Luffy: Adventure on Hand Island"}
+	if got, err := ChooseFile([]File{f}, target); err != nil || got.Path != f.Path {
+		t.Fatalf("ChooseFile = %q, %v", got.Path, err)
+	}
+	wrong := File{Path: "One Piece/Specials/One Piece - S00E08 - Soccer King of Dreams.mkv", Size: 1 << 30}
+	if _, err := ChooseFile([]File{wrong}, target); err == nil {
+		t.Fatal("a file naming another special was chosen")
+	}
+}
