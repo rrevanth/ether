@@ -175,7 +175,8 @@ var reAnyYear = regexp.MustCompile(`\b(19\d{2}|20\d{2})\b`)
 // title), as words, not merely without contradicting it.
 func namesTitle(name, title string) bool {
 	norm := func(s string) string {
-		return " " + strings.Join(strings.FieldsFunc(strings.ToLower(s), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }), " ") + " "
+		s = strings.NewReplacer("'", "", "’", "", "`", "").Replace(strings.ToLower(s)) // "I'm" is written "Im"
+		return " " + strings.Join(strings.FieldsFunc(s, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }), " ") + " "
 	}
 	t := strings.TrimSpace(norm(title))
 	if len(t) < 5 || strings.HasPrefix(t, "episode ") {
@@ -240,4 +241,48 @@ func (s *Service) rejectNamesake(rel core.Release, t *core.Title, sreq core.Sear
 		}
 	}
 	return ""
+}
+
+// namesakeAmbiguous reports a release that names its show only by a title it
+// shares with a namesake that has this same episode (One Piece S01E01 is
+// both the 1999 anime's first episode and the 2023 live action's), with
+// nothing in the name pointing at the request's show: not its episode title,
+// not an absolute number ("- 001", "EP0001"), not its series or air year,
+// not a fansub group tag. Such a release ranks after every release that
+// names this show and plays only when nothing else does.
+func (s *Service) namesakeAmbiguous(rel core.Release, t *core.Title, sreq core.SearchRequest) bool {
+	if t == nil || !mainTitleOnly(rel, sreq) || sreq.Episode <= 0 {
+		return false
+	}
+	s.namesakes.mu.Lock()
+	v, ok := s.namesakes.seen[namesakeKey(t.ShowKey, sreq.Title)]
+	s.namesakes.mu.Unlock()
+	if !ok || !v.other || s.now().Sub(v.at) >= seriesYearTTL {
+		return false
+	}
+	shared := false
+	for _, ns := range v.others {
+		if e, ok := s.namesakeEpisodes.Load(namesakeEpisodeKey(ns.Key, sreq.Season, sreq.Episode)); ok && e.(string) != "" {
+			shared = true
+			break
+		}
+	}
+	if !shared {
+		return false
+	}
+	switch {
+	case namesTitle(rel.Name, sreq.EpisodeTitle):
+		return false
+	case len(rel.Info.AbsoluteEpisodes) > 0:
+		return false
+	case strings.HasPrefix(strings.TrimSpace(rel.Name), "["):
+		return false
+	}
+	for _, m := range reAnyYear.FindAllString(rel.Name, -1) {
+		y, _ := strconv.Atoi(m)
+		if y == sreq.Year || (!sreq.Released.IsZero() && y == sreq.Released.Year()) {
+			return false
+		}
+	}
+	return true
 }

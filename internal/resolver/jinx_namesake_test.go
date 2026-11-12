@@ -116,3 +116,51 @@ func TestOwnerTurnsAwayReleasesNamingTheOtherShow(t *testing.T) {
 		}
 	}
 }
+
+// One Piece S01E01 exists in the 1999 anime and the 2023 live action: a
+// release saying only "One.Piece.S01E01" might be either and ranks after
+// every release that names the anime; past S01E08 (no live-action episode)
+// nothing is ambiguous.
+func TestAmbiguousSharedTitleReleasesRankLast(t *testing.T) {
+	live := core.RatingKey(2000000000111110)
+	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{
+		TitleNamesake: func(context.Context, core.RatingKey, string) ([]Namesake, bool, error) {
+			return []Namesake{{Key: live, Year: 2023}}, true, nil
+		},
+		NamesakeEpisodeTitle: func(_ context.Context, show core.RatingKey, season, episode int) (string, error) {
+			if show == live && season == 1 && episode <= 8 {
+				return "ROMANCE DAWN", nil
+			}
+			return "", nil
+		},
+	})
+	title := &core.Title{Type: core.TypeEpisode, ShowKey: 2000000000037854, ShowTitle: "One Piece", ShowYear: 1999, Season: 1, Episode: 1}
+	sreq := core.SearchRequest{Type: core.TypeEpisode, Title: "One Piece", Year: 1999, Season: 1, Episode: 1, EpisodeTitle: "I'm Luffy! The Man Who Will Become the Pirate King!", Released: time.Date(1999, 10, 20, 0, 0, 0, 0, time.UTC)}
+	names := map[string]bool{
+		"One.Piece.S01E01.2160p.NF.WEB-DL.DDP5.1.Atmos.DV.HDR-RHS.mkv":                           true,
+		"[Feibanyama] One Piece EP0001 [IQIYI WebRip 2160p HEVC OPUS]":                           false,
+		"One Piece - 001 1080p WEB x264 -NanDesuKa (CR)":                                         false,
+		"One.Piece.S01E01.Im.Luffy.The.Man.Who.Will.Become.the.Pirate.King.1080p.NF.WEB-DL.x264": false,
+		"One Piece (1999) S01E01 1080p WEB-DL":                                                   false,
+	}
+	var rels []core.Release
+	for n := range names {
+		rels = append(rels, withParsed(rel(n, n, 1400)))
+	}
+	s.prepareNamesakes(context.Background(), title, sreq, rels)
+	for _, r := range rels {
+		if got := s.namesakeAmbiguous(r, title, sreq); got != names[r.Name] {
+			t.Errorf("%q: ambiguous %v, want %v", r.Name, got, names[r.Name])
+		}
+	}
+	later := sreq
+	later.Episode, later.EpisodeTitle = 9, "Honorable Liar? Captain Usopp!"
+	r9 := withParsed(rel("e9", "One.Piece.S01E09.1080p.NF.WEB-DL.x264", 1400))
+	s.prepareNamesakes(context.Background(), title, later, []core.Release{r9})
+	if s.namesakeAmbiguous(r9, title, later) {
+		t.Error("S01E09 has no live-action episode but was ambiguous")
+	}
+	if !compareCandidates(candidate{langOK: true}, candidate{langOK: true, ambiguous: true, keys: rankKeys{position: 99}}) {
+		t.Error("an ambiguous 2160p release outranked a release naming the show")
+	}
+}

@@ -53,6 +53,9 @@ func compareCandidates(a, b candidate) bool {
 	if a.policy.Fallback != b.policy.Fallback {
 		return a.policy.Fallback < b.policy.Fallback
 	}
+	if a.ambiguous != b.ambiguous {
+		return b.ambiguous // jinx: a release that names this show beats one that might be its namesake's
+	}
 	if a.langOK != b.langOK {
 		return a.langOK
 	}

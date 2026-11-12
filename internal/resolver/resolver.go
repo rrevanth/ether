@@ -1642,6 +1642,7 @@ func (s *Service) rankPass(ctx context.Context, env rankEnv, req core.ResolveReq
 		lowBitrate := bitrateScore(sizedForEpisode(rel), t) < 0
 		starved := lowBitrate || upscales[ri]
 		yearGuessed := seriesYearGuessed(rel, sreq)
+		ambiguous := s.namesakeAmbiguous(rel, req.Title, sreq)
 		facts := formatFacts{starved: starved, lowBitrate: lowBitrate, viewerLanguage: langWanted, yearDiffers: yearGuessed, pastRetention: s.pastRetention(rel, now)}
 		sc, err := s.scoreRelease(rel, profile, req.Client, t, policyResult, facts)
 		if errors.Is(err, errFormatTimeout) {
@@ -1698,11 +1699,14 @@ func (s *Service) rankPass(ctx context.Context, env rankEnv, req core.ResolveReq
 			if yearGuessed {
 				note("series year differs but names no other show: ranked after correctly-labelled releases")
 			}
+			if ambiguous {
+				note("names nothing but a title another show shares, which has this episode too: ranked after releases that name this show")
+			}
 			if !langOK {
 				note("ranked after releases in an accepted audio language")
 			}
 		}
-		cands = append(cands, candidate{fallback: fallback, policy: policyResult, rel: rel, trace: tr, verified: verified, langOK: langOK, langWanted: langWanted, starved: starved, bandwidth: bandwidth, yearGuessed: yearGuessed, cf: sc.total, keys: keysFor(rel, starved, rc)})
+		cands = append(cands, candidate{fallback: fallback, policy: policyResult, rel: rel, trace: tr, verified: verified, langOK: langOK, langWanted: langWanted, starved: starved, bandwidth: bandwidth, yearGuessed: yearGuessed, ambiguous: ambiguous, cf: sc.total, keys: keysFor(rel, starved, rc)})
 	}
 	if hot != nil && len(cands) > 0 {
 		s.addPluginScores(hot, profile, cands, trace)

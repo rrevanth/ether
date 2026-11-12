@@ -24,6 +24,7 @@ type candidate struct {
 	starved     bool            // below its resolution's bitrate floor (bitrateScore) or a presumed upscale
 	bandwidth   int             // fits client cap (+1), unknown (0), or exceeds it (-1)
 	yearGuessed bool            // accepted despite a series year that differs from the show's
+	ambiguous   bool            // could be a namesake show's same episode (jinx_namesake.go)
 	cf          int             // custom format score: every matching format, plugin points included
 	keys        rankKeys        // the Radarr/Sonarr comparer keys (ranking.go)
 	prepared    *candidateCheck // validation overlapped with descriptor discovery
