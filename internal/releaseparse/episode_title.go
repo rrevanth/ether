@@ -95,6 +95,11 @@ func EpisodeTitleMatches(name, want string) bool {
 	var words []string
 	boundary := false
 	tailWords := strings.Fields(tail)
+	// jinx: a series-start number after the episode marker ("S10E01 (0337)",
+	// "S03E06 (56)") is numbering, not the episode's title.
+	for len(tailWords) > 0 && len(tailWords[0]) <= 4 && strings.Trim(tailWords[0], "0123456789") == "" {
+		tailWords = tailWords[1:]
+	}
 	for i, w := range tailWords {
 		u := strings.ToUpper(strings.Trim(w, "-"))
 		base := strings.SplitN(u, "-", 2)[0]

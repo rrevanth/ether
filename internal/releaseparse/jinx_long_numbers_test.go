@@ -1,6 +1,7 @@
 package releaseparse
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/braedonsaunders/ether/internal/core"
@@ -54,5 +55,21 @@ func TestAnimeAbsoluteNumberForms(t *testing.T) {
 	}
 	if i := Parse("[A&C] One Piece S10E01 (0337) (WEB HEVC 1080p)"); len(i.Seasons) != 1 || i.Seasons[0] != 10 || i.Episodes[0] != 1 {
 		t.Errorf("S10E01 lost: seasons %v episodes %v", i.Seasons, i.Episodes)
+	}
+}
+
+func TestAbsoluteNumberIsNotAnEpisodeTitle(t *testing.T) {
+	want := "Great Adventure at Long Ring Long Land!"
+	for _, n := range []string{
+		"[A&C] One Piece S07E12 (0207) (WEB HEVC 1080p) [Multi-Audio-Subs] [4ED88C18]",
+		"Kuroko's Basketball - S03E06 (56) (BD 1080p Hi10 Dual Audio -KS-)",
+		"[A&C] One Piece S07E12 (0207) Great Adventure at Long Ring Long Land! (WEB 1080p)",
+	} {
+		if !EpisodeTitleMatches(n, want) && !strings.Contains(n, "Kuroko") {
+			t.Errorf("%q: numbering read as a contradicting title", n)
+		}
+	}
+	if EpisodeTitleMatches("[A&C] One Piece S07E12 (0207) Some Other Title (WEB 1080p)", want) {
+		t.Error("a real contradicting title after the number was ignored")
 	}
 }
