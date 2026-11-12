@@ -681,7 +681,7 @@ func isExtra(p string) bool {
 // errDifferentTitle reports a torrent whose files name another series or
 // episode. It is the release's fault, never the provider's: the debrid
 // breaker must not pause an account over it (service.go observe).
-var errDifferentTitle = fmt.Errorf("debrid: different series or episode title: %w", core.ErrNotAvailable)
+var errDifferentTitle = fmt.Errorf("debrid: %w", core.ErrWrongContent)
 
 // namedFile is the video the release's source named for the target episode
 // (core.ReleaseTarget.FileName): an add-on asked for exactly this episode

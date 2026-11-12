@@ -53,6 +53,11 @@ type ReleaseTarget struct {
 // so it wraps ErrNotAvailable and is not a permanent failure.
 var ErrNotCached = fmt.Errorf("not cached by any debrid provider: %w", ErrNotAvailable)
 
+// ErrWrongContent reports a release whose files are another series or
+// episode (debrid ChooseFile): the release's fault, found from its file list
+// in a moment, not a playback failure (jinx).
+var ErrWrongContent = fmt.Errorf("different series or episode title: %w", ErrNotAvailable)
+
 // ErrDownloadQueued reports that an uncached torrent was handed to a debrid
 // account to download (cached-only off): not playable yet, but it will be.
 var ErrDownloadQueued = fmt.Errorf("sent to the debrid service to download: %w", ErrNotCached)

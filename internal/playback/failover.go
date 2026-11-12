@@ -71,6 +71,9 @@ func (m *Manager) preparedResolution(ctx context.Context, s *session, profile co
 // openInitial finds and opens the first release of a session: the stored
 // resume release when it was resolved for the same profile, else the
 // resolver's answer, moving to the next candidate when a release fails.
+// maxWrongContentRetries bounds the free retries after wrong-content releases.
+const maxWrongContentRetries = 8
+
 func (m *Manager) openInitial(ctx context.Context, s *session, profile core.QualityProfile) (*generation, error) {
 	original := ""
 	if s.title != nil {
@@ -80,6 +83,7 @@ func (m *Manager) openInitial(ctx context.Context, s *session, profile core.Qual
 	var (
 		tried          []string
 		alternates     []core.Release
+		wrongContent   int
 		lastErr        error
 		fallbackGen    *generation
 		fallbackBurned bool
@@ -218,6 +222,13 @@ func (m *Manager) openInitial(ctx context.Context, s *session, profile core.Qual
 		allUncached = allUncached && errors.Is(err, core.ErrNotCached)
 		m.log.Warn("release failed to open", "release", res.Release.Name, "err", err)
 		tried = append(tried, res.Release.ID)
+		if errors.Is(err, core.ErrWrongContent) && wrongContent < maxWrongContentRetries {
+			// jinx: a pack whose files are another series or episode is
+			// turned away from its file list in a moment; it does not use
+			// up an attempt, so a well-labelled release further down plays.
+			wrongContent++
+			attempt--
+		}
 		if len(res.Alternates) > 0 {
 			alternates = res.Alternates
 		}
