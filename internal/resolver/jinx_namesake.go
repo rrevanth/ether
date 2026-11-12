@@ -286,3 +286,26 @@ func (s *Service) namesakeAmbiguous(rel core.Release, t *core.Title, sreq core.S
 	}
 	return true
 }
+
+// withoutAmbiguous drops releases that might be a namesake's from the Play
+// Version picker when any release names the show itself: a viewer picking
+// "4K Dolby Vision" for anime One Piece S01E01 must not get the 2023 live
+// action. With nothing else, they stay (as Auto's fallback does).
+func withoutAmbiguous(cands []candidate) []candidate {
+	clear := 0
+	for _, c := range cands {
+		if !c.ambiguous {
+			clear++
+		}
+	}
+	if clear == 0 || clear == len(cands) {
+		return cands
+	}
+	out := make([]candidate, 0, clear)
+	for _, c := range cands {
+		if !c.ambiguous {
+			out = append(out, c)
+		}
+	}
+	return out
+}

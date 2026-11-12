@@ -76,6 +76,7 @@ func (s *Service) Variants(ctx context.Context, req core.ResolveRequest, max int
 			}
 		}
 	}
+	strict, pool = withoutAmbiguous(strict), withoutAmbiguous(pool) // jinx_namesake.go
 	var vs []core.ReleaseVariant
 	rcfg := s.resolverCfg()
 	wanted := wantedAudio(profile, req.User, s.catalogLanguage())

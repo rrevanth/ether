@@ -164,3 +164,13 @@ func TestAmbiguousSharedTitleReleasesRankLast(t *testing.T) {
 		t.Error("an ambiguous 2160p release outranked a release naming the show")
 	}
 }
+
+func TestPlayVersionsLeaveOutAmbiguousReleases(t *testing.T) {
+	a, b, c := candidate{rel: core.Release{ID: "anime"}}, candidate{rel: core.Release{ID: "live?"}, ambiguous: true}, candidate{rel: core.Release{ID: "anime-1080"}}
+	if got := withoutAmbiguous([]candidate{a, b, c}); len(got) != 2 || got[0].rel.ID != "anime" || got[1].rel.ID != "anime-1080" {
+		t.Fatalf("versions %+v", got)
+	}
+	if got := withoutAmbiguous([]candidate{b}); len(got) != 1 {
+		t.Fatal("the only release was dropped")
+	}
+}
