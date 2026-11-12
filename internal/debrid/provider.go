@@ -754,6 +754,7 @@ func withoutRegularNumbered(files []File) []File {
 // ChooseFile picks the main video file of a torrent: for a target episode
 // the largest file whose name matches it, else the largest video.
 func ChooseFile(files []File, target *core.ReleaseTarget) (File, error) {
+	all := files
 	if f, ok := namedFile(files, target); ok {
 		return f, nil
 	}
@@ -777,7 +778,7 @@ func ChooseFile(files []File, target *core.ReleaseTarget) (File, error) {
 			// must never permanently blacklist it for that title as well.
 			return File{}, errDifferentTitle
 		}
-		return File{}, errNoVideo
+		return File{}, fmt.Errorf("%w (%s)", errNoVideo, describeFiles(all)) // jinx: say what was there
 	}
 	sort.SliceStable(videos, func(i, j int) bool { return videos[i].Size > videos[j].Size })
 	if target == nil || target.Episode <= 0 {
@@ -949,4 +950,18 @@ func fileIdentityMatches(f File, target *core.ReleaseTarget) bool {
 		return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.SpecialTitleAgrees(base, target.EpisodeTitle))
 	}
 	return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.EpisodeTitleMatches(base, target.EpisodeTitle))
+}
+
+// describeFiles summarises a torrent's files for an error: the count and the
+// first few names with sizes (jinx).
+func describeFiles(files []File) string {
+	parts := []string{fmt.Sprintf("%d files", len(files))}
+	for i, f := range files {
+		if i == 4 {
+			parts = append(parts, "...")
+			break
+		}
+		parts = append(parts, fmt.Sprintf("%q %d", path.Base(strings.ReplaceAll(f.Path, "\\", "/")), f.Size))
+	}
+	return strings.Join(parts, "; ")
 }
