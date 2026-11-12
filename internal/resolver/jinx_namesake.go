@@ -2,10 +2,12 @@ package resolver
 
 import (
 	"context"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/braedonsaunders/ether/internal/core"
 	"github.com/braedonsaunders/ether/internal/releaseparse"
@@ -21,15 +23,25 @@ import (
 //   - matched by a main title several shows share ("Ramayan" 1987 and 2008),
 //     it belongs to the one most TMDB voters know, as Sonarr maps an
 //     unyeared title; the others need a series year or ids in the release.
+//     Even the owner turns away a release carrying the other show's identity:
+//     its premiere year ("One Piece S01E01 2023") or its title for this very
+//     episode ("ONE.PIECE.S01E01.ROMANCE.DAWN" is the 2023 live action).
 // The lookups mirror series_year.go: once per show and title, cached, before
 // ranking; an unanswered lookup keeps the release (upstream's behaviour).
 
 const maxNamesakeLookups = 4
 
+// Namesake is another catalogue show titled like the request's show.
+type Namesake struct {
+	Key  core.RatingKey
+	Year int
+}
+
 type namesakeVerdict struct {
-	other bool // another show's own title is this one
-	owns  bool // of the shows titled this, the request's show is the best known
-	at    time.Time
+	other  bool       // another show's own title is this one
+	owns   bool       // of the shows titled this, the request's show is the best known
+	others []Namesake // those other shows
+	at     time.Time
 }
 
 type namesakes struct {
@@ -104,7 +116,7 @@ func (s *Service) prepareNamesakes(ctx context.Context, t *core.Title, sreq core
 		}
 		lookups++
 		lctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		other, owns, err := s.titleNamesake(lctx, t.ShowKey, title)
+		others, owns, err := s.titleNamesake(lctx, t.ShowKey, title)
 		cancel()
 		if err != nil {
 			s.log.Debug("namesake lookup failed; keeping alternative-title matches", "show", t.ShowKey, "title", title, "err", err)
@@ -121,9 +133,84 @@ func (s *Service) prepareNamesakes(ctx context.Context, t *core.Title, sreq core
 				}
 			}
 		}
-		s.namesakes.seen[key] = namesakeVerdict{other: other, owns: owns, at: now}
+		s.namesakes.seen[key] = namesakeVerdict{other: len(others) > 0, owns: owns, others: others, at: now}
 		s.namesakes.mu.Unlock()
 	}
+	s.prepareNamesakeEpisodes(ctx, t, sreq)
+}
+
+// prepareNamesakeEpisodes looks up the shared-title shows' own titles for
+// the requested season and episode, once each (cached for the process).
+func (s *Service) prepareNamesakeEpisodes(ctx context.Context, t *core.Title, sreq core.SearchRequest) {
+	if s.namesakeEpisodeTitle == nil || sreq.Episode <= 0 {
+		return
+	}
+	s.namesakes.mu.Lock()
+	v := s.namesakes.seen[namesakeKey(t.ShowKey, sreq.Title)]
+	s.namesakes.mu.Unlock()
+	for i, ns := range v.others {
+		if i == maxNamesakeLookups {
+			break
+		}
+		k := namesakeEpisodeKey(ns.Key, sreq.Season, sreq.Episode)
+		if _, ok := s.namesakeEpisodes.Load(k); ok {
+			continue
+		}
+		lctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		title, err := s.namesakeEpisodeTitle(lctx, ns.Key, sreq.Season, sreq.Episode)
+		cancel()
+		if err == nil {
+			s.namesakeEpisodes.Store(k, title)
+		}
+	}
+}
+
+func namesakeEpisodeKey(show core.RatingKey, season, episode int) string {
+	return strconv.FormatInt(int64(show), 10) + "/" + strconv.Itoa(season) + "/" + strconv.Itoa(episode)
+}
+
+var reAnyYear = regexp.MustCompile(`\b(19\d{2}|20\d{2})\b`)
+
+// namesTitle reports a release name that spells out title (an episode
+// title), as words, not merely without contradicting it.
+func namesTitle(name, title string) bool {
+	norm := func(s string) string {
+		return " " + strings.Join(strings.FieldsFunc(strings.ToLower(s), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }), " ") + " "
+	}
+	t := strings.TrimSpace(norm(title))
+	if len(t) < 5 || strings.HasPrefix(t, "episode ") {
+		return false
+	}
+	return strings.Contains(norm(name), " "+t+" ")
+}
+
+// namesakeTell reports a release named by a shared title that carries the
+// other show's identity: that show's premiere year (and not the request's),
+// or that show's title for this very episode (and not the request's).
+func (s *Service) namesakeTell(rel core.Release, t *core.Title, sreq core.SearchRequest, others []Namesake) string {
+	for _, m := range reAnyYear.FindAllString(rel.Name, -1) {
+		y, _ := strconv.Atoi(m)
+		if !sreq.Released.IsZero() && y-sreq.Released.Year() <= 1 && sreq.Released.Year()-y <= 1 {
+			continue // the episode's own air year ("One Piece - 1080 (2023)")
+		}
+		if sreq.Year > 0 && (y-sreq.Year > 1 || sreq.Year-y > 1) {
+			for _, ns := range others {
+				if ns.Year == y {
+					return "names another show's year"
+				}
+			}
+		}
+	}
+	for _, ns := range others {
+		v, ok := s.namesakeEpisodes.Load(namesakeEpisodeKey(ns.Key, sreq.Season, sreq.Episode))
+		if !ok {
+			continue
+		}
+		if other := v.(string); other != "" && namesTitle(rel.Name, other) && !namesTitle(rel.Name, sreq.EpisodeTitle) {
+			return "names another show's episode"
+		}
+	}
+	return ""
 }
 
 // rejectNamesake is the ranking-time verdict of prepareNamesakes.
@@ -139,8 +226,13 @@ func (s *Service) rejectNamesake(rel core.Release, t *core.Title, sreq core.Sear
 	}
 	switch {
 	case mainTitleOnly(rel, sreq):
-		if v, ok := verdict(sreq.Title); ok && v.other && !v.owns {
-			return "unyeared title belongs to a better-known show"
+		if v, ok := verdict(sreq.Title); ok && v.other {
+			if !v.owns {
+				return "unyeared title belongs to a better-known show"
+			}
+			if reason := s.namesakeTell(rel, t, sreq, v.others); reason != "" {
+				return reason
+			}
 		}
 	case altTitleOnly(rel, t, sreq):
 		if v, ok := verdict(rel.Info.Title); ok && v.other {

@@ -52,3 +52,16 @@ func TestDifferentTitleDoesNotPauseTheProvider(t *testing.T) {
 		t.Fatalf("state %q after title mismatches", e.state)
 	}
 }
+
+// Torrentio numbers One Piece by IMDb: asked for TMDB S13E450 it named
+// episode 422's file. A named file numbering another episode is ignored.
+func TestChooseFileIgnoresANamedFileOfAnotherEpisode(t *testing.T) {
+	files := []File{
+		{Path: "One Piece/[Koten_Gars] One Piece - 0422 [1080p].mkv", Size: 1 << 30},
+		{Path: "One Piece/[Koten_Gars] One Piece - 0450 [1080p].mkv", Size: 1 << 30},
+	}
+	f, err := ChooseFile(files, &core.ReleaseTarget{Season: 13, Episode: 450, AbsoluteEpisode: 450, FileName: "[Koten_Gars] One Piece - 0422 [1080p]"})
+	if err != nil || f.Path != files[1].Path {
+		t.Fatalf("ChooseFile = %q, %v; want episode 450", f.Path, err)
+	}
+}

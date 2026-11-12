@@ -687,7 +687,8 @@ var errDifferentTitle = fmt.Errorf("debrid: different series or episode title: %
 // (core.ReleaseTarget.FileName): an add-on asked for exactly this episode
 // matched the file itself, which covers packs whose files carry no SxxExx
 // (anime OVAs and specials named by title, "25.5"). It must be the only
-// video with that base name.
+// video with that base name, and its own name must not number another
+// episode.
 func namedFile(files []File, target *core.ReleaseTarget) (File, bool) {
 	if target == nil || target.Episode <= 0 || target.FileName == "" {
 		return File{}, false
@@ -704,7 +705,23 @@ func namedFile(files []File, target *core.ReleaseTarget) (File, bool) {
 			hit, n = f, n+1
 		}
 	}
-	return hit, n == 1
+	if n != 1 {
+		return File{}, false
+	}
+	// The add-on numbers episodes its own way (IMDb's, not TMDB's): a named
+	// file whose own name numbers another episode is not this one, and the
+	// usual name matching decides instead.
+	info := releaseparse.Parse(path.Base(strings.ReplaceAll(hit.Path, "\\", "/")))
+	if len(info.Episodes) > 0 || len(info.AbsoluteEpisodes) > 0 {
+		abs := target.AbsoluteEpisode
+		if abs <= 0 {
+			abs = target.Episode
+		}
+		if !releaseparse.EpisodeMatches(info, target.Season, target.Episode) && !releaseparse.EpisodeMatchesAbsolute(info, abs) {
+			return File{}, false
+		}
+	}
+	return hit, true
 }
 
 // ChooseFile picks the main video file of a torrent: for a target episode

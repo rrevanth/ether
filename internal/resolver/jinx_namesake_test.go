@@ -3,6 +3,7 @@ package resolver
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/braedonsaunders/ether/internal/core"
 )
@@ -12,9 +13,12 @@ import (
 // also holds. Its own full-title release still matches.
 func TestAlternativeTitleNamingAnotherShowIsRejected(t *testing.T) {
 	asked := map[string]int{}
-	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(_ context.Context, _ core.RatingKey, title string) (bool, bool, error) {
+	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(_ context.Context, _ core.RatingKey, title string) ([]Namesake, bool, error) {
 		asked[title]++
-		return title == "Ramayan", title != "Ramayan", nil
+		if title == "Ramayan" {
+			return []Namesake{{Key: 2000000000001990, Year: 1987}}, false, nil
+		}
+		return nil, true, nil
 	}})
 	title := &core.Title{Type: core.TypeEpisode, Title: "The Echo Of Ayodhya", ShowKey: 2000000000339052, ShowTitle: "RAMAYAN AN ATHARV SRIVASTAVA SERIES", ShowYear: 2026,
 		ShowAlternativeTitles: []string{"RAMAYAN"}, Season: 1, Episode: 1}
@@ -40,7 +44,7 @@ func TestAlternativeTitleNamingAnotherShowIsRejected(t *testing.T) {
 // An alternative title that names no other show (a romanized original)
 // keeps matching.
 func TestAlternativeTitleWithoutNamesakeStillMatches(t *testing.T) {
-	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(context.Context, core.RatingKey, string) (bool, bool, error) { return false, true, nil }})
+	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(context.Context, core.RatingKey, string) ([]Namesake, bool, error) { return nil, true, nil }})
 	title := &core.Title{Type: core.TypeEpisode, ShowKey: 2000000000209867, ShowTitle: "Frieren: Beyond Journey's End", ShowAlternativeTitles: []string{"Sousou no Frieren"}, Season: 1, Episode: 3}
 	sreq := core.SearchRequest{Type: core.TypeEpisode, Title: title.ShowTitle, Season: 1, Episode: 3, AlternativeTitles: title.ShowAlternativeTitles}
 	r := withParsed(rel("f", "[SubsPlease] Sousou no Frieren - 03 (1080p) [ABCD1234].mkv", 1400))
@@ -54,8 +58,12 @@ func TestAlternativeTitleWithoutNamesakeStillMatches(t *testing.T) {
 // (far more votes), so the 2008 show needs a year in the name.
 func TestSharedTitleUnyearedReleaseGoesToTheBetterKnownShow(t *testing.T) {
 	owner := map[core.RatingKey]bool{2000000000001990: true, 2000000000015620: false}
-	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(_ context.Context, show core.RatingKey, _ string) (bool, bool, error) {
-		return true, owner[show], nil
+	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{TitleNamesake: func(_ context.Context, show core.RatingKey, _ string) ([]Namesake, bool, error) {
+		other := core.RatingKey(2000000000001990)
+		if show == other {
+			other = 2000000000015620
+		}
+		return []Namesake{{Key: other}}, owner[show], nil
 	}})
 	pack := withParsed(rel("t", "Ramayan.S01E01.Birth.of.the.Four.Princes.1080p.DSNP+.WEB-DL.AAC2.0.x264-Telly", 1400))
 	yeared := withParsed(rel("y", "Ramayan (2008) S01E01 720p WEB-DL x264 AAC 2.0-JA", 700))
@@ -68,6 +76,43 @@ func TestSharedTitleUnyearedReleaseGoesToTheBetterKnownShow(t *testing.T) {
 		}
 		if got := s.rejectNamesake(yeared, title, sreq); got != "" {
 			t.Errorf("show %d: yeared release rejected: %q", show, got)
+		}
+	}
+}
+
+// "One Piece" is the 1999 anime (5,645 votes) and the 2023 live action
+// (1,997): the anime owns unyeared releases, but not ones carrying the live
+// action's year or its title for the same episode.
+func TestOwnerTurnsAwayReleasesNamingTheOtherShow(t *testing.T) {
+	live := core.RatingKey(2000000000111110)
+	s := New(&fakeIndexer{}, fakeHealth{}, nil, testCfg(), Options{
+		TitleNamesake: func(context.Context, core.RatingKey, string) ([]Namesake, bool, error) {
+			return []Namesake{{Key: live, Year: 2023}}, true, nil
+		},
+		NamesakeEpisodeTitle: func(_ context.Context, show core.RatingKey, season, episode int) (string, error) {
+			if show == live && season == 1 && episode == 1 {
+				return "ROMANCE DAWN", nil
+			}
+			return "", nil
+		},
+	})
+	title := &core.Title{Type: core.TypeEpisode, ShowKey: 2000000000037854, ShowTitle: "One Piece", ShowYear: 1999, Season: 1, Episode: 1}
+	sreq := core.SearchRequest{Type: core.TypeEpisode, Title: "One Piece", Year: 1999, Season: 1, Episode: 1, EpisodeTitle: "I'm Luffy! The Man Who Will Become the Pirate King!"}
+	aired2023 := sreq
+	aired2023.Released = time.Date(2023, 10, 29, 0, 0, 0, 0, time.UTC)
+	if r := withParsed(rel("y", "[SubsPlease] One Piece - 1080 (2023) (1080p)", 1400)); s.rejectNamesake(r, title, aired2023) != "" {
+		t.Error("an episode's own air year read as the live action's")
+	}
+	for name, want := range map[string]string{
+		"ONE.PIECE.S01E01.ROMANCE.DAWN.2160p.NF.WEB-DL.DDP5.1.Atmos.DV.HDR.H.265-G66":            "names another show's episode",
+		"One Piece S01E01 2023 2160p NF WEB-DL DDP5 1 Atmos DV HDR H 265-HHWEB":                  "names another show's year",
+		"[Erai-raws] One Piece - 001 [1080p][Multiple Subtitle]":                                 "",
+		"One.Piece.S01E01.Im.Luffy.The.Man.Who.Will.Become.the.Pirate.King.1080p.NF.WEB-DL.x264": "",
+	} {
+		r := withParsed(rel("x", name, 1400))
+		s.prepareNamesakes(context.Background(), title, sreq, []core.Release{r})
+		if got := s.rejectNamesake(r, title, sreq); got != want {
+			t.Errorf("%q: %q, want %q", name, got, want)
 		}
 	}
 }

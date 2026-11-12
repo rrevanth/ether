@@ -84,10 +84,11 @@ type Options struct {
 	// SeriesYearConflict reports whether the catalogue holds a different
 	// show titled title that first aired in year (see series_year.go).
 	SeriesYearConflict func(ctx context.Context, show core.RatingKey, title string, year int) (bool, error)
-	// TitleNamesake reports whether the catalogue holds a different show
-	// whose own title is title, and whether show is the best known of the
-	// shows so titled (see jinx_namesake.go).
-	TitleNamesake func(ctx context.Context, show core.RatingKey, title string) (other, owns bool, err error)
+	// TitleNamesake lists the other catalogue shows whose own title is
+	// title, and whether show is the best known of the shows so titled;
+	// NamesakeEpisodeTitle names another show's episode (see jinx_namesake.go).
+	TitleNamesake        func(ctx context.Context, show core.RatingKey, title string) (others []Namesake, owns bool, err error)
+	NamesakeEpisodeTitle func(ctx context.Context, show core.RatingKey, season, episode int) (string, error)
 	// AnimeCour maps multi-cour TMDB anime season episodes to their cour
 	// and cour-relative episode number; nil disables cour mapping.
 	AnimeCour AnimeCour
@@ -216,7 +217,9 @@ type Service struct {
 	years                     seriesYears
 	seriesYearConflict        func(ctx context.Context, show core.RatingKey, title string, year int) (bool, error)
 	namesakes                 namesakes
-	titleNamesake             func(ctx context.Context, show core.RatingKey, title string) (other, owns bool, err error)
+	titleNamesake             func(ctx context.Context, show core.RatingKey, title string) (others []Namesake, owns bool, err error)
+	namesakeEpisodeTitle      func(ctx context.Context, show core.RatingKey, season, episode int) (string, error)
+	namesakeEpisodes          sync.Map // show/season/episode -> episode title ("" when unknown)
 	animeCour                 AnimeCour
 	libProfiles               LibraryProfiles
 	availabilityGeneration    uint64
@@ -291,7 +294,7 @@ var _ core.Resolver = (*Service)(nil)
 // (typically *newznab.Manager); health may be nil (health checks are
 // then skipped); db may be nil (state then lives in memory).
 func New(indexer core.Indexer, health core.HealthChecker, db *sql.DB, cfg config.Config, opts Options) *Service {
-	s := &Service{seriesYearConflict: opts.SeriesYearConflict, titleNamesake: opts.TitleNamesake, animeCour: opts.AnimeCour, libProfiles: opts.LibraryProfiles, searchObserved: opts.SearchObserved, discovered: opts.Discovered, observed: opts.Observed, invalidated: opts.Invalidated,
+	s := &Service{seriesYearConflict: opts.SeriesYearConflict, titleNamesake: opts.TitleNamesake, namesakeEpisodeTitle: opts.NamesakeEpisodeTitle, animeCour: opts.AnimeCour, libProfiles: opts.LibraryProfiles, searchObserved: opts.SearchObserved, discovered: opts.Discovered, observed: opts.Observed, invalidated: opts.Invalidated,
 		indexer: indexer, health: health, db: db,
 		bad: map[string]badMark{}, reps: map[string]reputation{},
 		avail: map[int64]availEntry{}, searchCache: map[string]searchCacheEntry{},

@@ -6,6 +6,7 @@ import (
 
 	"github.com/braedonsaunders/ether/internal/core"
 	"github.com/braedonsaunders/ether/internal/releaseparse"
+	"github.com/braedonsaunders/ether/internal/resolver"
 )
 
 // titleNamesake reports whether the catalogue holds a show other than show
@@ -14,13 +15,13 @@ import (
 // clearly better known: at least twice show's TMDB votes, and ten more.
 // Without vote counts, or with show missing from the results, show owns it:
 // an unknown answer must not cost a show its releases.
-func (a *App) titleNamesake(ctx context.Context, show core.RatingKey, title string) (other, owns bool, err error) {
+func (a *App) titleNamesake(ctx context.Context, show core.RatingKey, title string) (others []resolver.Namesake, owns bool, err error) {
 	if a.catalog == nil {
-		return false, false, errors.New("catalogue unavailable")
+		return nil, false, errors.New("catalogue unavailable")
 	}
 	shows, err := a.catalog.SearchAll(ctx, title, []core.MediaType{core.TypeShow}, 20)
 	if err != nil {
-		return false, false, err
+		return nil, false, err
 	}
 	var self *core.Title
 	topOther := -1
@@ -31,10 +32,23 @@ func (a *App) titleNamesake(ctx context.Context, show core.RatingKey, title stri
 			continue
 		}
 		if releaseparse.TitlesMatch(t.Title, title) || (t.OriginalTitle != "" && releaseparse.TitlesMatch(t.OriginalTitle, title)) {
-			other = true
+			others = append(others, resolver.Namesake{Key: t.Key, Year: t.Year})
 			topOther = max(topOther, t.VoteCount)
 		}
 	}
-	owns = !other || self == nil || topOther <= 0 || topOther < 2*self.VoteCount+10
-	return other, owns, nil
+	owns = len(others) == 0 || self == nil || topOther <= 0 || topOther < 2*self.VoteCount+10
+	return others, owns, nil
+}
+
+// namesakeEpisodeTitle is another show's title for one episode (catalogue,
+// fetched from TMDB when not yet stored); "" when it has no such episode.
+func (a *App) namesakeEpisodeTitle(ctx context.Context, show core.RatingKey, season, episode int) (string, error) {
+	if a.catalog == nil {
+		return "", errors.New("catalogue unavailable")
+	}
+	t, err := a.catalog.Get(ctx, core.EpisodeKey(show.TMDB(), season, episode))
+	if err != nil || t == nil {
+		return "", nil
+	}
+	return t.Title, nil
 }
