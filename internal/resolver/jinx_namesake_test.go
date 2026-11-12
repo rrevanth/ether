@@ -194,3 +194,13 @@ func TestAbsoluteNumberWrittenAsSeasonEpisode(t *testing.T) {
 		t.Error("season-1 absolute accepted / another season's E30 rejected incorrectly")
 	}
 }
+
+func TestPlayVersionsLeaveOutUnwantedAudio(t *testing.T) {
+	en, hr := candidate{rel: core.Release{ID: "en"}, langOK: true}, candidate{rel: core.Release{ID: "hr"}}
+	if got := withoutUnwantedAudio([]candidate{en, hr}); len(got) != 1 || got[0].rel.ID != "en" {
+		t.Fatalf("versions %+v", got)
+	}
+	if got := withoutUnwantedAudio([]candidate{hr}); len(got) != 1 {
+		t.Fatal("the only release was dropped")
+	}
+}

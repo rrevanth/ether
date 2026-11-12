@@ -83,3 +83,20 @@ func TestSeasonEpisodeWithAbsoluteMatchesTheAbsolute(t *testing.T) {
 		t.Error("a plain S07E12 matched absolute 207")
 	}
 }
+
+func TestRegionalDubLanguages(t *testing.T) {
+	for name, want := range map[string]string{
+		"Kralj.Lavova.(1994).1080p.crtani.filmovi.hrvatski.sink.[remastered]": "croatian",
+		"Kalki 2898 AD (2024) 1080p WEB-DL Malayalam DDP5.1":                  "malayalam",
+		"Movie.2020.1080p.BluRay.Kannada.x264":                                "kannada",
+		"Der.Film.2019.German.Deutsch.1080p":                                  "german",
+	} {
+		got := false
+		for _, l := range Parse(name).Languages {
+			got = got || l == want
+		}
+		if !got {
+			t.Errorf("%q: languages %v, want %s", name, Parse(name).Languages, want)
+		}
+	}
+}

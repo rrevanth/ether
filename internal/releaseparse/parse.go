@@ -86,6 +86,21 @@ var languages = []struct{ token, name string }{
 	{"PT-BR", LanguagePortugueseBrazil}, {"BRAZILIAN", LanguagePortugueseBrazil}, {"DUBLADO", LanguagePortugueseBrazil}, {"NACIONAL", LanguagePortugueseBrazil}, {"PT-PT", LanguagePortuguesePortugal},
 	{"ES-ES", LanguageSpanishSpain}, {"ES-MX", LanguageSpanishLatino}, {"ES-419", LanguageSpanishLatino},
 	{"EN-US", "english"}, {"EN-GB", "english"},
+	// jinx: languages written out in English that were missing, and the
+	// languages' own names, which regional dubs use ("Kralj.Lavova.(1994)
+	// ...hrvatski.sink" is the Croatian dub).
+	{"CROATIAN", "croatian"}, {"HRVATSKI", "croatian"}, {"HRV", "croatian"},
+	{"SERBIAN", "serbian"}, {"SRPSKI", "serbian"}, {"BOSNIAN", "bosnian"}, {"BOSANSKI", "bosnian"},
+	{"SLOVENIAN", "slovenian"}, {"SLOVENSKI", "slovenian"}, {"SLOVAK", "slovak"}, {"SLOVENSKY", "slovak"},
+	{"ROMANIAN", "romanian"}, {"BULGARIAN", "bulgarian"}, {"MACEDONIAN", "macedonian"}, {"ALBANIAN", "albanian"},
+	{"LITHUANIAN", "lithuanian"}, {"LATVIAN", "latvian"}, {"ESTONIAN", "estonian"}, {"ICELANDIC", "icelandic"},
+	{"HEBREW", "hebrew"}, {"PERSIAN", "persian"}, {"FARSI", "persian"}, {"URDU", "urdu"},
+	{"MALAYALAM", "malayalam"}, {"KANNADA", "kannada"}, {"BENGALI", "bengali"}, {"MARATHI", "marathi"},
+	{"MALAY", "malay"}, {"TAGALOG", "tagalog"}, {"FILIPINO", "tagalog"}, {"CATALAN", "catalan"},
+	{"DEUTSCH", "german"}, {"FRANCAIS", "french"}, {"FRANÇAIS", "french"}, {"ITALIANO", "italian"},
+	{"PORTUGUES", "portuguese"}, {"PORTUGUÊS", "portuguese"}, {"NEDERLANDS", "dutch"}, {"POLSKI", "polish"},
+	{"CESKY", "czech"}, {"ČESKY", "czech"}, {"MAGYAR", "hungarian"}, {"SVENSKA", "swedish"},
+	{"NORSK", "norwegian"}, {"DANSK", "danish"}, {"SUOMI", "finnish"}, {"TURKCE", "turkish"}, {"TÜRKÇE", "turkish"},
 }
 
 func normalizeSpanishCapRange(s string) string {

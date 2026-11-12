@@ -309,3 +309,26 @@ func withoutAmbiguous(cands []candidate) []candidate {
 	}
 	return out
 }
+
+// withoutUnwantedAudio drops releases whose declared audio is not an
+// accepted language (a Croatian-only dub for an English title) from the Play
+// Version picker when releases in an accepted language exist; Auto already
+// ranks them last (langOK). With nothing else, they stay.
+func withoutUnwantedAudio(cands []candidate) []candidate {
+	ok := 0
+	for _, c := range cands {
+		if c.langOK {
+			ok++
+		}
+	}
+	if ok == 0 || ok == len(cands) {
+		return cands
+	}
+	out := make([]candidate, 0, ok)
+	for _, c := range cands {
+		if c.langOK {
+			out = append(out, c)
+		}
+	}
+	return out
+}
