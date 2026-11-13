@@ -178,7 +178,7 @@ func (s *Service) VibeCollection(ctx context.Context, user *core.User, query str
 	v, ok := ParseVibe(query)
 	if !ok {
 		if r := s.vibeRefinerDep(); r != nil {
-			bctx, cancel := context.WithTimeout(ctx, 1200*time.Millisecond)
+			bctx, cancel := context.WithTimeout(ctx, vibeRefineTimeout) // jinx: was 1.2 s
 			rv, rok, err := r.RefineVibe(bctx, user, query)
 			cancel()
 			if err == nil && rok {
@@ -198,6 +198,7 @@ func (s *Service) VibeCollection(ctx context.Context, user *core.User, query str
 		s.log.Debug("collections: vibe unresolved", "query", query, "err", err)
 		return nil, nil, false, nil
 	}
+	withVoteFloor(&v) // jinx
 	owner := vibeOwner(user)
 	sig := vibeSig(owner, v)
 	reg := s.vibeReg()
@@ -216,6 +217,9 @@ func (s *Service) VibeCollection(ctx context.Context, user *core.User, query str
 	e := &ephemeralEntry{key: reg.nextKey(), owner: owner, vibe: v, created: s.now()}
 	page, err := s.ephemeralPage(ctx, user, e, 0, vibeTopItems)
 	if err != nil {
+		return nil, nil, false, err
+	}
+	if page, err = s.relaxedVibePage(ctx, user, e, page); err != nil { // jinx
 		return nil, nil, false, err
 	}
 	if page.Total == 0 {

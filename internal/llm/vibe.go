@@ -36,7 +36,7 @@ func (s *Service) RefineVibe(ctx context.Context, u *core.User, query string) (c
 	prompt := fmt.Sprintf(`A viewer typed this into a movie/TV search bar: %q.
 Decide whether it describes a browseable category (genres, era, mood, language, runtime, a person, a studio, or "like some title") rather than one specific title.
 Reply with JSON only, exactly: {"vibe":true,"title":"short collection title","type":"movie|show|","genres":[],"yearFrom":0,"yearTo":0,"minRating":0,"maxRuntimeMin":0,"minRuntimeMin":0,"languages":[],"countries":[],"personName":"","studio":"","similarTo":"","sort":"popularity|rating|released|title"}
-Use only these genres: %s. Languages are ISO 639-1 codes. If it is a specific title or you are unsure, reply {"vibe":false}.`, query, strings.Join(vibeGenreNames, ", "))
+Use only these genres: %s. Languages are ISO 639-1 codes ("South Indian" means te, ta, ml, kn; "Indian" adds hi). minRating is 0 unless asked: about 7 for "high rated", "acclaimed" or "best", 8 only for "all-time greats" or "masterpieces". If it is a specific title or you are unsure, reply {"vibe":false}.`, query, strings.Join(vibeGenreNames, ", "))
 
 	content, err := s.client.Chat(ctx, []Message{
 		{Role: "system", Content: "You translate search phrases into structured catalogue filters. Reply with JSON only."},
@@ -154,11 +154,10 @@ func parseVibeJSON(content string) (core.VibeQuery, bool) {
 		v.Filter.MinRuntime = time.Duration(in.MinRuntimeMin) * time.Minute
 	}
 	for _, l := range in.Languages {
-		l = strings.ToLower(strings.TrimSpace(l))
-		if len(l) == 2 {
-			v.Filter.Languages = append(v.Filter.Languages, l)
+		if code := vibeLanguage(l); code != "" { // jinx: names too
+			v.Filter.Languages = append(v.Filter.Languages, code)
 		}
-		if len(v.Filter.Languages) >= 3 {
+		if len(v.Filter.Languages) >= maxVibeLanguages {
 			break
 		}
 	}
