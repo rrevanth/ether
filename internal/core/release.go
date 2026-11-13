@@ -92,6 +92,11 @@ type Release struct {
 	// TitleIDs are movie/series identifiers reported by the indexer. They
 	// must never be inferred from the search request's identifiers.
 	TitleIDs IDs `json:"titleIds,omitempty"`
+	// TitleIDsEchoed marks TitleIDs copied from the query rather than
+	// reported by the source (an add-on asked by IMDb id answers with
+	// whatever it filed there): they route the result, but prove nothing
+	// about its identity (jinx).
+	TitleIDsEchoed bool `json:"titleIdsEchoed,omitempty"`
 
 	// Torrent releases (additive). Protocol is "" for Usenet and
 	// ProtocolTorrent for Torznab results; torrents are streamed through
@@ -355,4 +360,13 @@ func (p QualityProfile) ComputeSelectionKey() string {
 type QualityItem struct {
 	Name      string   `json:"name,omitempty"`
 	Qualities []string `json:"qualities"`
+}
+
+// ReportedTitleIDs are the identifiers that vouch for the release's identity:
+// TitleIDs, unless they only echo the query (jinx).
+func (r Release) ReportedTitleIDs() IDs {
+	if r.TitleIDsEchoed {
+		return IDs{}
+	}
+	return r.TitleIDs
 }

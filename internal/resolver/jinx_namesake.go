@@ -59,7 +59,7 @@ func unvouched(rel core.Release, sreq core.SearchRequest) bool {
 	if sreq.Type != core.TypeEpisode || rel.Info.Title == "" {
 		return false
 	}
-	if idMatch, _ := releaseparse.CompareTitleIDs(rel.TitleIDs, sreq.IDs); idMatch {
+	if idMatch, _ := releaseparse.CompareTitleIDs(rel.ReportedTitleIDs(), sreq.IDs); idMatch {
 		return false
 	}
 	return releaseparse.EpisodeSeriesYear(rel.Name, rel.Info.Year) == 0
