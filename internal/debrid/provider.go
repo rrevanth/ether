@@ -715,7 +715,7 @@ func namedFile(files []File, target *core.ReleaseTarget) (File, bool) {
 	// carries the add-on's own numbering (IMDb's "S00E14" for TMDB's S00E05):
 	// trust it (the stremio backend already dropped numbers that clash).
 	if target.Season == 0 {
-		if specialFileContradicts(hit.Path, target) {
+		if !fileIdentityMatches(hit, target) { // the same file check as any other special's (jinx)
 			return File{}, false
 		}
 		return hit, true
@@ -944,7 +944,11 @@ func fileIdentityMatches(f File, target *core.ReleaseTarget) bool {
 	if target.Season == 0 && target.Episode > 0 {
 		// jinx: a special's file title is judged like its release's
 		// (releaseparse.SpecialTitleAgrees); the resolver chose the release.
-		return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.SpecialTitleAgrees(base, target.EpisodeTitle)) &&
+		// A series year or id proves the show, never which special: the
+		// title after S00Exx must agree ("JUJUTSU KAISEN (2020) - S00E02 -
+		// Jujutsu Kaisen 0" is the film, not TMDB's pre-broadcast special).
+		_ = idMatch
+		return releaseparse.SeriesYearMatches(year, target.ShowYear) && releaseparse.SpecialTitleAgrees(base, target.EpisodeTitle, target.ShowTitles...) &&
 			!specialFileContradicts(f.Path, target)
 	}
 	return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.EpisodeTitleMatches(base, target.EpisodeTitle))

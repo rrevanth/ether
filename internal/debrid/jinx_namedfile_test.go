@@ -114,3 +114,26 @@ func TestSpecialNamedFileKeepsTheAddonsNumbering(t *testing.T) {
 		t.Fatalf("ChooseFile = %q, %v", f.Path, err)
 	}
 }
+
+// Asked for Jujutsu Kaisen's "Movie & Season 2 Pre-Broadcast Special", the
+// add-on named BlackRabbit's TVDB-numbered S00E02, the film: its series
+// year proves the show, not the special, and its title disagrees.
+func TestSpecialNamedFileWithTheShowsYearStillNeedsItsTitle(t *testing.T) {
+	shows := []string{"JUJUTSU KAISEN", "呪術廻戦", "Jujutsu Kaisen"}
+	film := "JUJUTSU KAISEN (2020) - S00E02 - Jujutsu Kaisen 0 [Bluray-1080p][Opus 5.1][AV1]-BlackRabbit"
+	files := []File{{Path: "[BlackRabbit] JUJUTSU KAISEN (2020) - S00 [Bluray-1080p][Opus 5.1][Dual Audio][AV1]/" + film + ".mkv", Size: 4 << 30}}
+	target := &core.ReleaseTarget{Season: 0, Episode: 2, ShowYear: 2020, EpisodeTitle: "Movie & Season 2 Pre-Broadcast Special", FileName: film, ShowTitles: shows}
+	if f, err := ChooseFile(files, target); err == nil {
+		t.Fatalf("the film opened for the pre-broadcast special: %q", f.Path)
+	}
+	for _, c := range []struct{ name, title string }{
+		{"Kuroko's Basketball (2012) - S00E11 - NG-Shuu 9 [Bluray-1080p][Opus 2.0][AV1]-BlackRabbit", "NG-Shuu 9"},
+		{"Doctor Who (2005) - s00e02 - The Christmas Invasion - HDTV-1080p - h265", "The Christmas Invasion"},
+	} {
+		files := []File{{Path: "pack/" + c.name + ".mkv", Size: 1 << 30}}
+		tg := &core.ReleaseTarget{Season: 0, Episode: 2, EpisodeTitle: c.title, FileName: c.name, ShowTitles: []string{"Kuroko's Basketball", "Doctor Who"}}
+		if f, err := ChooseFile(files, tg); err != nil || f.Path != files[0].Path {
+			t.Errorf("%q: ChooseFile = %q, %v", c.name, f.Path, err)
+		}
+	}
+}
