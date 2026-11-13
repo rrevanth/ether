@@ -30,14 +30,16 @@ func (s *Service) NaturalSearch(ctx context.Context, u *core.User, query string,
 	}
 	key := fmt.Sprintf("search:%d:%x:%d", userID(u), sha256.Sum256([]byte(query)), limit)
 	compute := func(ctx context.Context) ([]core.Hub, []core.Title, error) {
-		ctx = core.WithExplicitSearch(ctx) // runs detached from the search request
-		content, e := s.client.Chat(ctx, []Message{{Role: "system", Content: systemPrompt}, {Role: "user", Content: fmt.Sprintf(`Find real titles matching this request: %q. Suggest at most %d. Reply JSON {"titles":[{"title":"...","year":2000,"type":"movie"}]}.`, query, limit)}}, true)
+		ctx = core.WithExplicitSearch(ctx)                                                                                                                     // runs detached from the search request
+		content, e := s.client.Chat(ctx, []Message{{Role: "system", Content: systemPrompt}, {Role: "user", Content: naturalSearchPrompt(query, limit)}}, true) // jinx: jinx_natural.go
 		if e != nil {
 			return nil, nil, e
 		}
-		return nil, s.resolve(ctx, ParseTitles(content), nil, limit), nil
+		// jinx: resolve the whole over-asked list, keep the request's languages, then trim.
+		titles := inRequestLanguages(query, s.resolve(ctx, ParseTitles(content), nil, naturalSearchAsk(limit)))
+		return nil, titles[:min(len(titles), limit)], nil
 	}
-	bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
+	bounded, cancel := context.WithTimeout(ctx, naturalSearchWait) // jinx: was 2 s
 	defer cancel()
 	titles, e := s.wait(bounded, key, "", compute, func(v *cacheEntry) []core.Title { return v.titles })
 	if e != nil || len(titles) == 0 {
