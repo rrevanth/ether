@@ -556,6 +556,11 @@ type SearchRequest struct {
 	// alternative titles) a release name may use; matching only, never
 	// part of a query or cache key (additive).
 	AlternativeTitles []string `json:"-"`
+	// SiblingTitles are the titles of the season's other episodes (specials
+	// only), and SeasonTitles the show's season names by number: what tells
+	// a release naming another special or season apart (jinx).
+	SiblingTitles []string       `json:"-"`
+	SeasonTitles  map[int]string `json:"-"`
 	// Released is when the movie came out or the episode aired (zero when
 	// unknown). Indexer caches keep results for older titles longer; never
 	// part of a query or cache key (additive).

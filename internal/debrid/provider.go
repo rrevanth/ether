@@ -715,6 +715,9 @@ func namedFile(files []File, target *core.ReleaseTarget) (File, bool) {
 	// carries the add-on's own numbering (IMDb's "S00E14" for TMDB's S00E05):
 	// trust it (the stremio backend already dropped numbers that clash).
 	if target.Season == 0 {
+		if specialFileContradicts(hit.Path, target) {
+			return File{}, false
+		}
 		return hit, true
 	}
 	info := releaseparse.Parse(path.Base(strings.ReplaceAll(hit.Path, "\\", "/")))
@@ -941,7 +944,8 @@ func fileIdentityMatches(f File, target *core.ReleaseTarget) bool {
 	if target.Season == 0 && target.Episode > 0 {
 		// jinx: a special's file title is judged like its release's
 		// (releaseparse.SpecialTitleAgrees); the resolver chose the release.
-		return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.SpecialTitleAgrees(base, target.EpisodeTitle))
+		return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.SpecialTitleAgrees(base, target.EpisodeTitle)) &&
+			!specialFileContradicts(f.Path, target)
 	}
 	return releaseparse.SeriesYearMatches(year, target.ShowYear) && (year != 0 || idMatch || releaseparse.EpisodeTitleMatches(base, target.EpisodeTitle))
 }
@@ -958,4 +962,15 @@ func describeFiles(files []File) string {
 		parts = append(parts, fmt.Sprintf("%q %d", path.Base(strings.ReplaceAll(f.Path, "\\", "/")), f.Size))
 	}
 	return strings.Join(parts, "; ")
+}
+
+// specialFileContradicts reports a special's file that names another of the
+// show's specials, or only a group's count with no S00Exx (jinx;
+// releaseparse.SpecialNamesAnother, SpecialCountOnly).
+func specialFileContradicts(filePath string, target *core.ReleaseTarget) bool {
+	if target == nil || target.Season != 0 || target.Episode <= 0 {
+		return false
+	}
+	return releaseparse.SpecialNamesAnother(filePath, target.EpisodeTitle, target.SiblingTitles, target.ShowTitles) ||
+		releaseparse.SpecialCountOnly(filePath, target.ShowTitles)
 }

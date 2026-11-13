@@ -52,3 +52,36 @@ func (a *App) namesakeEpisodeTitle(ctx context.Context, show core.RatingKey, sea
 	}
 	return t.Title, nil
 }
+
+// showSeasonTitles are the catalogue's season names of show by number
+// (resolver/jinx_seasons.go).
+func (a *App) showSeasonTitles(ctx context.Context, show core.RatingKey) (map[int]string, error) {
+	if a.catalog == nil {
+		return nil, errors.New("catalogue unavailable")
+	}
+	seasons, err := a.catalog.Children(ctx, core.ShowKey(show.TMDB()))
+	if err != nil {
+		return nil, err
+	}
+	out := map[int]string{}
+	for _, s := range seasons {
+		out[s.Season] = s.Title
+	}
+	return out, nil
+}
+
+// seasonEpisodeTitles are one season's episode titles by number.
+func (a *App) seasonEpisodeTitles(ctx context.Context, show core.RatingKey, season int) (map[int]string, error) {
+	if a.catalog == nil {
+		return nil, errors.New("catalogue unavailable")
+	}
+	eps, err := a.catalog.Children(ctx, core.SeasonKey(show.TMDB(), season))
+	if err != nil {
+		return nil, err
+	}
+	out := map[int]string{}
+	for _, e := range eps {
+		out[e.Episode] = e.Title
+	}
+	return out, nil
+}

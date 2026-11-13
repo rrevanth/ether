@@ -89,6 +89,10 @@ type Options struct {
 	// NamesakeEpisodeTitle names another show's episode (see jinx_namesake.go).
 	TitleNamesake        func(ctx context.Context, show core.RatingKey, title string) (others []Namesake, owns bool, err error)
 	NamesakeEpisodeTitle func(ctx context.Context, show core.RatingKey, season, episode int) (string, error)
+	// ShowSeasonTitles and SeasonEpisodeTitles read the catalogue's season
+	// names and one season's episode titles (see jinx_seasons.go).
+	ShowSeasonTitles    func(ctx context.Context, show core.RatingKey) (map[int]string, error)
+	SeasonEpisodeTitles func(ctx context.Context, show core.RatingKey, season int) (map[int]string, error)
 	// AnimeCour maps multi-cour TMDB anime season episodes to their cour
 	// and cour-relative episode number; nil disables cour mapping.
 	AnimeCour AnimeCour
@@ -219,6 +223,9 @@ type Service struct {
 	namesakes                 namesakes
 	titleNamesake             func(ctx context.Context, show core.RatingKey, title string) (others []Namesake, owns bool, err error)
 	namesakeEpisodeTitle      func(ctx context.Context, show core.RatingKey, season, episode int) (string, error)
+	showSeasonTitles          func(ctx context.Context, show core.RatingKey) (map[int]string, error)
+	seasonEpisodeTitles       func(ctx context.Context, show core.RatingKey, season int) (map[int]string, error)
+	seasonNames               seasonNames
 	namesakeEpisodes          sync.Map // show/season/episode -> episode title ("" when unknown)
 	animeCour                 AnimeCour
 	libProfiles               LibraryProfiles
@@ -294,7 +301,7 @@ var _ core.Resolver = (*Service)(nil)
 // (typically *newznab.Manager); health may be nil (health checks are
 // then skipped); db may be nil (state then lives in memory).
 func New(indexer core.Indexer, health core.HealthChecker, db *sql.DB, cfg config.Config, opts Options) *Service {
-	s := &Service{seriesYearConflict: opts.SeriesYearConflict, titleNamesake: opts.TitleNamesake, namesakeEpisodeTitle: opts.NamesakeEpisodeTitle, animeCour: opts.AnimeCour, libProfiles: opts.LibraryProfiles, searchObserved: opts.SearchObserved, discovered: opts.Discovered, observed: opts.Observed, invalidated: opts.Invalidated,
+	s := &Service{seriesYearConflict: opts.SeriesYearConflict, titleNamesake: opts.TitleNamesake, namesakeEpisodeTitle: opts.NamesakeEpisodeTitle, showSeasonTitles: opts.ShowSeasonTitles, seasonEpisodeTitles: opts.SeasonEpisodeTitles, animeCour: opts.AnimeCour, libProfiles: opts.LibraryProfiles, searchObserved: opts.SearchObserved, discovered: opts.Discovered, observed: opts.Observed, invalidated: opts.Invalidated,
 		indexer: indexer, health: health, db: db,
 		bad: map[string]badMark{}, reps: map[string]reputation{},
 		avail: map[int64]availEntry{}, searchCache: map[string]searchCacheEntry{},
@@ -573,6 +580,7 @@ func (s *Service) searchRequest(ctx context.Context, t *core.Title) core.SearchR
 			req.Cour, req.CourEpisode = cour, ep
 		}
 	}
+	s.withSeasonNames(ctx, t, &req) // jinx
 	return req
 }
 
@@ -1920,6 +1928,9 @@ func (s *Service) rejectReason(rel core.Release, t *core.Title, sreq core.Search
 	if reason := rejectSpecial(rel, sreq); reason != "" {
 		return reason
 	}
+	if reason := rejectOtherSeasonOrSpecial(rel, sreq); reason != "" { // jinx_seasons.go
+		return reason
+	}
 	return rejectPolicy(rel, t, profile, caps, preferred, preferred && s.resolverCfg().OfferHigherVersions)
 }
 
@@ -2344,10 +2355,12 @@ func withTarget(rel core.Release, sreq core.SearchRequest) core.Release {
 		target.Cour, target.CourEpisode = sreq.Cour, sreq.CourEpisode
 		target.ExpectedIDs, target.ReportedIDs = sreq.IDs, rel.ReportedTitleIDs()
 		target.FileName = cmp.Or(rel.FileName, target.FileName)
+		target.ShowTitles, target.SiblingTitles = specialTargetTitles(sreq)
 		rel.Target = &target
 		return rel // enrich cached identities without deriving their ID again
 	}
 	target := core.ReleaseTarget{AbsoluteEpisode: releaseparse.AnimeSearchEpisode(sreq), Cour: sreq.Cour, CourEpisode: sreq.CourEpisode, Season: sreq.Season, Episode: sreq.Episode, ShowYear: sreq.Year, EpisodeTitle: sreq.EpisodeTitle, ExpectedIDs: sreq.IDs, ReportedIDs: rel.ReportedTitleIDs(), FileName: rel.FileName}
+	target.ShowTitles, target.SiblingTitles = specialTargetTitles(sreq)
 	if rel.Info.FullSeason {
 		target.PackID = rel.ID
 		rel.ID = core.TargetReleaseID(rel.ID, target)

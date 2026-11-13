@@ -46,6 +46,10 @@ type ReleaseTarget struct {
 	// release's indexer-reported series IDs, retained for file validation.
 	ExpectedIDs IDs `json:"expectedIds,omitempty"`
 	ReportedIDs IDs `json:"reportedIds,omitempty"`
+	// ShowTitles and SiblingTitles carry, for a special, the show's names and
+	// its other specials' titles to the file check (jinx).
+	ShowTitles    []string `json:"showTitles,omitempty"`
+	SiblingTitles []string `json:"siblingTitles,omitempty"`
 }
 
 // ErrNotCached reports that no debrid provider can serve a torrent release
