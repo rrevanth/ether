@@ -218,6 +218,14 @@ func specialIdentity(info core.ReleaseInfo, req core.SearchRequest, packs bool, 
 		!releaseparse.NamesSpecial(torrent) && !releaseparse.NamesSpecial(file) {
 		return info, false
 	}
+	// A bare regular number ("One Piece - 590 (NF)") with no Specials/OVA
+	// word, no "1065.5" in-between number and no title of this special is
+	// a regular episode the add-on matched by mistake (jinx).
+	if releaseparse.RegularNumbered(named) && !halfEpisode.MatchString(named) &&
+		!releaseparse.NamesSpecial(torrent) && !releaseparse.NamesSpecial(file) &&
+		!releaseparse.NamesTitle(named, req.EpisodeTitle, req.Title, req.OriginalTitle) {
+		return info, false
+	}
 	if f := releaseparse.Parse(named); len(f.Seasons) > 0 && !halfEpisode.MatchString(named) && !releaseparse.EpisodeMatches(f, 0, want) {
 		return info, false
 	}

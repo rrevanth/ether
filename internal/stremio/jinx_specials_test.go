@@ -180,3 +180,30 @@ func TestSpecialFromARegularSeasonPackIsDropped(t *testing.T) {
 		t.Fatalf("kept %q", rels[0].Name)
 	}
 }
+
+// Torrentio answered One Piece's Dr. Chopper special with regular episode
+// 590: a bare regular number with no Specials word or special title is dropped.
+func TestSpecialAnsweredWithARegularNumberIsDropped(t *testing.T) {
+	req := core.SearchRequest{Type: core.TypeEpisode, Title: "One Piece", Season: 0, Episode: 39,
+		EpisodeTitle: "Dr. Chopper's Adventure Checkup -The Last Records That a Genius Left-"}
+	for _, c := range []struct {
+		file, torrent string
+		keep          bool
+	}{
+		{"", "[Erai-raws] One Piece - 590 (NF) [1080p][Multiple Subtitle][9BB5230A]", false},
+		{"", "One Piece - 590 [1080p]", false},
+		{"One Piece - 590 [1080p].mkv", "One Piece 579-603", false},
+		{"", "One Piece - Ep590 (OVA+Toriko+DBZ) (Filler)", true},                                              // marked
+		{"1065.5.mkv", "One Piece 1065.5 - 1069", true},                                                        // in-between number
+		{"", "[Judas] One Piece - Barto no Himitsu no Heya - SP04v2", true},                                    // SPxx, no bare number
+		{"", "One Piece - 1141 - Dr. Chopper's Adventure Checkup - The Last Records That a Genius Left", true}, // its title
+	} {
+		if _, keep := specialIdentity(core.ReleaseInfo{}, req, false, c.file, c.torrent, 0); keep != c.keep {
+			t.Errorf("file %q torrent %q: keep=%v, want %v", c.file, c.torrent, keep, c.keep)
+		}
+	}
+	land := core.SearchRequest{Type: core.TypeEpisode, Title: "Haikyu!!", Season: 0, Episode: 4, EpisodeTitle: "Land vs. Air"}
+	if _, keep := specialIdentity(core.ReleaseInfo{}, land, false, "", "[sam] Haikyuu!! Land vs. Air - 01v3 [BD 1080p]", 0); !keep {
+		t.Error("a special numbered within its own title was dropped")
+	}
+}

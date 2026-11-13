@@ -730,9 +730,6 @@ func namedFile(files []File, target *core.ReleaseTarget) (File, bool) {
 	return hit, true
 }
 
-// reDashNumber is an anime-style bare episode number: "Show - 01 - 1080p".
-var reDashNumber = regexp.MustCompile(`(?:^|\s)-\s\d{1,4}(?:\s?v\d{1,2})?(?:\s-\s|\s*[\[(]|\s*$)`)
-
 // withoutRegularNumbered drops, for a special, files numbered like a
 // regular episode ("One Piece - 01 (FUNi).mkv": a number with no season)
 // with no Specials/OVA/OAD word anywhere in their path (jinx).
@@ -740,10 +737,7 @@ func withoutRegularNumbered(files []File) []File {
 	out := files[:0:0]
 	for _, f := range files {
 		p := strings.ReplaceAll(f.Path, "\\", "/")
-		base := path.Base(p)
-		info := releaseparse.Parse(base)
-		numbered := len(info.Episodes) > 0 || len(info.AbsoluteEpisodes) > 0 || reDashNumber.MatchString(strings.TrimSuffix(base, path.Ext(base)))
-		if len(info.Seasons) == 0 && numbered && !releaseparse.NamesSpecial(p) {
+		if releaseparse.RegularNumbered(path.Base(p)) && !releaseparse.NamesSpecial(p) {
 			continue
 		}
 		out = append(out, f)

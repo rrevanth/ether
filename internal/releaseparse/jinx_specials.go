@@ -16,7 +16,9 @@ import (
 var (
 	reSpecialMarker = regexp.MustCompile(`(?i)\bS0{1,2}E\d{1,4}\b`)
 	reSpecialsWord  = regexp.MustCompile(`(?i)\b(specials?|ovas?|oads?|extras)\b`)
-	reTitleStop     = regexp.MustCompile(`(?i)[\[(]|\b(\d{3,4}p|4k|uhd|blu-?ray|bdrip|bd|brrip|web|webrip|web-dl|hdtv|dvd|dvdrip|remux|x26[45]|h\.?26[45]|hevc|avc|av1|aac|ac3|eac3|ddp?|dts|flac|opus|multi|dual|custom|nf|cr|amzn|dsnp|hmax|10bits?|8bit|hdr|sdr|dv|dovi|proper|repack|ita|eng|jpn|jap|vostfr|sub|subs|dub|mkv|mp4)\b`)
+	// reBareDashNumber is an anime-style bare episode number: "Show - 01 - 1080p".
+	reBareDashNumber = regexp.MustCompile(`(?:^|\s)-\s\d{1,4}(?:\s?v\d{1,2})?(?:\s-\s|\s*[\[(]|\s*$)`)
+	reTitleStop      = regexp.MustCompile(`(?i)[\[(]|\b(\d{3,4}p|4k|uhd|blu-?ray|bdrip|bd|brrip|web|webrip|web-dl|hdtv|dvd|dvdrip|remux|x26[45]|h\.?26[45]|hevc|avc|av1|aac|ac3|eac3|ddp?|dts|flac|opus|multi|dual|custom|nf|cr|amzn|dsnp|hmax|10bits?|8bit|hdr|sdr|dv|dovi|proper|repack|ita|eng|jpn|jap|vostfr|sub|subs|dub|mkv|mp4)\b`)
 )
 
 var specialStop = map[string]bool{"the": true, "a": true, "an": true, "of": true, "and": true, "to": true, "in": true, "on": true,
@@ -78,4 +80,45 @@ func SpecialTitleAgrees(name, want string, shows ...string) bool {
 		}
 	}
 	return shared*2 >= len(title)
+}
+
+// RegularNumbered reports a file or release name numbered like a regular
+// episode with no season ("One Piece - 590 (NF) [1080p]", "One Piece 01"):
+// a bare number, which never by itself names a special.
+func RegularNumbered(name string) bool {
+	base := name
+	if i := strings.LastIndexAny(base, "/\\"); i >= 0 {
+		base = base[i+1:]
+	}
+	if i := strings.LastIndex(base, "."); i > 0 && len(base)-i <= 5 {
+		base = base[:i] // extension
+	}
+	info := Parse(base)
+	if len(info.Seasons) > 0 {
+		return false
+	}
+	return len(info.Episodes) > 0 || len(info.AbsoluteEpisodes) > 0 || reBareDashNumber.MatchString(base)
+}
+
+// NamesTitle reports a name that spells out at least half of want's words
+// (the show's names and filler words aside): positive evidence that it is
+// that episode, where EpisodeTitleMatches only finds no contradiction.
+func NamesTitle(name, want string, shows ...string) bool {
+	wanted := specialWords(want)
+	have := specialWords(strings.NewReplacer(".", " ", "_", " ").Replace(name))
+	for _, show := range shows {
+		for w := range specialWords(show) {
+			delete(wanted, w)
+		}
+	}
+	if len(wanted) == 0 {
+		return false
+	}
+	shared := 0
+	for w := range wanted {
+		if have[w] {
+			shared++
+		}
+	}
+	return shared*2 >= len(wanted)
 }
