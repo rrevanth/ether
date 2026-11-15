@@ -33,7 +33,7 @@ func payloadMatchesTitle(nzb []byte, title *core.Title) bool {
 		return true
 	}
 	origSeason, origEpisode := season, episode
-	absolute := playbackAbsoluteEpisode(title, season, episode)
+	absolute := playbackAbsoluteEpisodeOr(title, season, episode, p.Target)
 	var valid bool
 	season, episode, valid = targetEpisodeNumbers(p.Target, season, episode)
 	if !valid {
@@ -126,7 +126,7 @@ func releaseMatchesTitle(rel core.Release, title *core.Title) bool {
 	}
 	season, episode := title.Season, title.Episode
 	origSeason, origEpisode := season, episode
-	absolute := playbackAbsoluteEpisode(title, season, episode)
+	absolute := playbackAbsoluteEpisodeOr(title, season, episode, rel.Target)
 	var valid bool
 	season, episode, valid = targetEpisodeNumbers(rel.Target, season, episode)
 	if !valid {
@@ -255,4 +255,20 @@ func targetEpisodeNumbers(target *core.ReleaseTarget, season, episode int) (int,
 		return season, episode, false
 	}
 	return target.Season, target.Episode, true
+}
+
+// playbackAbsoluteEpisodeOr falls back to the absolute number the resolver
+// verified for this same episode (the release target) when playback's title
+// was hydrated without one. TMDB's story-arc seasons (One Piece S10E337) are
+// numbered from the series start, and a pack's "S10E01 (0337)" file is only
+// identifiable by that number (jinx).
+func playbackAbsoluteEpisodeOr(title *core.Title, season, episode int, target *core.ReleaseTarget) int {
+	if n := playbackAbsoluteEpisode(title, season, episode); n > 0 {
+		return n
+	}
+	if target != nil && target.AbsoluteEpisode > 0 &&
+		((target.Season == season && target.Episode == episode) || (target.CanonicalSeason == season && target.CanonicalEpisode == episode)) {
+		return target.AbsoluteEpisode
+	}
+	return 0
 }
