@@ -38,11 +38,11 @@ type SpecialMapper struct {
 	base    string
 	mu      sync.Mutex
 	entries map[string]specialEntry
-	loading map[string]bool
+	loading map[string]chan struct{}
 }
 
 func NewSpecialMapper(client *http.Client, base string) *SpecialMapper {
-	return &SpecialMapper{client: client, base: strings.TrimRight(base, "/"), entries: map[string]specialEntry{}, loading: map[string]bool{}}
+	return &SpecialMapper{client: client, base: strings.TrimRight(base, "/"), entries: map[string]specialEntry{}, loading: map[string]chan struct{}{}}
 }
 
 func (m *SpecialMapper) LookupSpecial(ctx context.Context, req core.SearchRequest) (int, bool) {
@@ -50,17 +50,28 @@ func (m *SpecialMapper) LookupSpecial(ctx context.Context, req core.SearchReques
 	if m == nil || m.client == nil || id == "" || strings.TrimSpace(req.EpisodeTitle) == "" {
 		return 0, false
 	}
-	m.mu.Lock()
-	entry, cached := m.entries[id]
-	if cached && time.Now().Before(entry.until) {
+	for {
+		m.mu.Lock()
+		entry, cached := m.entries[id]
+		if cached && time.Now().Before(entry.until) {
+			m.mu.Unlock()
+			return matchSpecialTitle(req, entry.videos)
+		}
+		wait, loading := m.loading[id]
+		if !loading {
+			break // this caller loads; m.mu stays held until it registers
+		}
 		m.mu.Unlock()
-		return matchSpecialTitle(req, entry.videos)
+		// Every add-on searches a special at once; they all wait for the one
+		// listing load instead of skipping the special (jinx).
+		select {
+		case <-wait:
+		case <-ctx.Done():
+			return 0, false
+		}
 	}
-	if m.loading[id] {
-		m.mu.Unlock()
-		return 0, false
-	}
-	m.loading[id] = true
+	done := make(chan struct{})
+	m.loading[id] = done
 	m.mu.Unlock()
 	videos, ok := m.fetch(ctx, id)
 	ttl := time.Hour
@@ -69,13 +80,18 @@ func (m *SpecialMapper) LookupSpecial(ctx context.Context, req core.SearchReques
 	}
 	m.mu.Lock()
 	delete(m.loading, id)
+	close(done)
 	if len(m.entries) >= 256 {
 		for key := range m.entries {
 			delete(m.entries, key)
 			break
 		}
 	}
-	m.entries[id] = specialEntry{until: time.Now().Add(ttl), videos: videos}
+	// A load cut short by this caller's own context says nothing about
+	// Cinemeta; leave the series unremembered so the next caller retries.
+	if ok || ctx.Err() == nil {
+		m.entries[id] = specialEntry{until: time.Now().Add(ttl), videos: videos}
+	}
 	m.mu.Unlock()
 	return matchSpecialTitle(req, videos)
 }
