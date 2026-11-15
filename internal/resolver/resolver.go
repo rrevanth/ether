@@ -3574,6 +3574,13 @@ func episodeIdentityEvidence(rel core.Release, req core.SearchRequest) bool {
 		releaseparse.EpisodeMatchesAirDate(rel.Info, req.Released) {
 		return true
 	}
+	// "S10E01 (0337)": the release names this episode's own absolute number.
+	// A long-running anime's 3-digit-plus absolute number cannot belong to a
+	// short same-named series (One Piece's live-action show has 8 episodes) (jinx).
+	if req.Type == core.TypeEpisode && req.Season > 0 && req.AbsoluteEpisode >= 100 &&
+		releaseparse.EpisodeMatchesAbsolute(rel.Info, req.AbsoluteEpisode) {
+		return true
+	}
 	// Specials are rarely numbered S00Exx ("[Judas] One Piece - SP30 - A
 	// Comprehensive Anatomy! The Legend of Kozuki Oden!"); their own title is
 	// the evidence that tells the anime from a same-named show (jinx).
