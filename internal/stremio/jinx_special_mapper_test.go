@@ -54,3 +54,21 @@ func TestJinxConcurrentSpecialLookupsShareOneLoad(t *testing.T) {
 		t.Fatalf("lookup after a cancelled load mapped to %d %v, want 1 (cancelled load must not be remembered)", n, ok)
 	}
 }
+
+// Kuroko's Basketball lists "NG-Shuu 2" (E2) and "NG-Shuu 2 2" (E14); as word
+// sets they are equal. The identical title decides.
+func TestJinxIdenticalSpecialTitleWins(t *testing.T) {
+	videos := []specialVideo{{Season: 0, Episode: 1, Name: "NG-Shuu 1"}, {Season: 0, Episode: 2, Name: "NG-Shuu 2"},
+		{Season: 0, Episode: 13, Name: "NG-Shuu 2 1"}, {Season: 0, Episode: 14, Name: "NG-Shuu 2 2"}}
+	for title, want := range map[string]int{"NG-Shuu 2": 2, "NG-Shuu 2 2": 14, "NG-Shuu 1": 1, "NG-Shuu 2 1": 13} {
+		req := core.SearchRequest{Type: core.TypeEpisode, Title: "Kuroko's Basketball", Season: 0, EpisodeTitle: title}
+		if n, ok := matchSpecialTitle(req, videos); !ok || n != want {
+			t.Errorf("%q mapped to %d %v, want %d", title, n, ok, want)
+		}
+	}
+	// Two listing entries with the same title stay ambiguous.
+	dup := append(videos, specialVideo{Season: 0, Episode: 30, Name: "NG-Shuu 1"})
+	if n, ok := matchSpecialTitle(core.SearchRequest{Type: core.TypeEpisode, Title: "Kuroko's Basketball", EpisodeTitle: "NG-Shuu 1"}, dup); ok {
+		t.Errorf("duplicate title mapped to %d", n)
+	}
+}

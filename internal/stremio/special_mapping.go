@@ -147,6 +147,23 @@ func matchSpecialTitle(req core.SearchRequest, videos []specialVideo) (int, bool
 	if !meaningful {
 		return 0, false
 	}
+	// The very same title, once in the listing, wins outright: word sets
+	// collapse repeats, so "NG-Shuu 2" and "NG-Shuu 2 2" would otherwise tie (jinx).
+	if title := releaseparse.NormalizeTitle(req.EpisodeTitle); title != "" {
+		same := 0
+		for _, v := range videos {
+			if releaseparse.NormalizeTitle(v.Name) == title {
+				if same != 0 && same != v.Episode {
+					same = -1
+					break
+				}
+				same = v.Episode
+			}
+		}
+		if same > 0 {
+			return same, true
+		}
+	}
 	best, number, tied := 0.0, 0, false
 	for _, v := range videos {
 		got := releaseparse.SpecialTitleWords(v.Name, shows...)
