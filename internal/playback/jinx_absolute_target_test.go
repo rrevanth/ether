@@ -33,3 +33,17 @@ func TestJinxArcSeasonFileUsesTheTargetAbsolute(t *testing.T) {
 		t.Fatal("episode 338 accepted for 337")
 	}
 }
+
+func TestJinxRomajiOVAPayloadTheAddonVouchedFor(t *testing.T) {
+	title := &core.Title{Type: core.TypeEpisode, Season: 0, Episode: 3, ShowTitle: "Haikyu!!", Title: "Special Feature! The Spring Tournament of Their Youth"}
+	file := "[DB] Haikyuu!! (Season 1-4+OVAs+Movies)/OVA/[DB]Haikyuu!! Tokushuu! Haru-kou Volley ni Kaketa Seishun_-_OVA_(10bit_WEB1080p_x265).mkv"
+	for _, c := range []struct {
+		asked int
+		want  bool
+	}{{5, true}, {0, false}} {
+		b, _ := json.Marshal(map[string]any{"path": file, "target": core.ReleaseTarget{Season: 0, Episode: 3, ShowTitles: []string{"Haikyu!!", "Haikyuu!!"}, AddonSpecialEpisode: c.asked}})
+		if got := payloadMatchesTitle(append([]byte(debridPayloadPrefix), b...), title); got != c.want {
+			t.Errorf("asked=%d: payload accepted=%v, want %v", c.asked, got, c.want)
+		}
+	}
+}

@@ -25,3 +25,28 @@ func TestJinxSeasonZeroPackSuppliesItsSpecial(t *testing.T) {
 		t.Fatal("a regular-season pack supplied a special")
 	}
 }
+
+// Torrentio answers Haikyu!! IMDb S00E05 (TMDB S00E03 "Special Feature! The
+// Spring Tournament of Their Youth") with romaji-titled OVA files from packs.
+func TestJinxRomajiOVAFileTheAddonVouchedFor(t *testing.T) {
+	req := core.SearchRequest{Type: core.TypeEpisode, Title: "Haikyu!!", AlternativeTitles: []string{"Haikyuu!!"}, Season: 0, Episode: 3,
+		EpisodeTitle: "Special Feature! The Spring Tournament of Their Youth", Anime: true}
+	torrent := "[DB] Haikyuu!! (Season 1-4+OVAs+Movies) [Dual Audio 10bit BD1080p][HEVC-x265]"
+	file := "[DB]Haikyuu!! Tokushuu! Haru-kou Volley ni Kaketa Seishun_-_OVA_(10bit_WEB1080p_x265).mkv"
+	rel, keep := specialRelease(core.Release{Name: torrent}, req, file, torrent, 5)
+	if !keep || rel.Target == nil || rel.Target.AddonSpecialEpisode != 5 {
+		t.Fatalf("romaji OVA the add-on answered for IMDb 5 dropped: keep=%v", keep)
+	}
+	// Not asked by a mapped IMDb number: no vouching.
+	if _, keep := specialRelease(core.Release{Name: torrent}, req, file, torrent, 0); keep {
+		t.Fatal("romaji OVA kept without the add-on's mapped answer")
+	}
+	// A bare group-local count with no title is still not taken on the add-on's word.
+	if _, keep := specialRelease(core.Release{Name: torrent}, req, "[Kawaiika-Raws] Haikyuu!! OAD 02 [DVDRip 1024x576 HEVC FLAC].mkv", torrent, 5); keep {
+		t.Fatal("a bare OAD count was taken on the add-on's word")
+	}
+	// An unlabelled file is not vouched for either.
+	if _, keep := specialRelease(core.Release{Name: torrent}, req, "[DB]Haikyuu!! Tokushuu! Haru-kou Volley ni Kaketa Seishun.mkv", torrent, 5); keep {
+		t.Fatal("an unlabelled file was taken on the add-on's word")
+	}
+}
