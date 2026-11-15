@@ -47,7 +47,15 @@ func specialRelease(rel core.Release, req core.SearchRequest, file, torrent stri
 		}
 	} else {
 		// Bare regular numbering never becomes season zero on the add-on's word.
-		if len(info.Episodes) > 0 || len(info.AbsoluteEpisodes) > 0 || !releaseparse.SpecialTitleEvidence(actual, req.EpisodeTitle, shows...) {
+		if len(info.Episodes) > 0 || len(info.AbsoluteEpisodes) > 0 {
+			return rel, false
+		}
+		// A labelled special the add-on answered for the IMDb special it was
+		// asked about is that special even when it is titled in romaji
+		// ("Haikyuu!! Tokushuu! Haru-kou Volley ni Kaketa Seishun - OVA" for
+		// TMDB "Special Feature! The Spring Tournament of Their Youth") (jinx).
+		vouched := asked > 0 && releaseparse.NamesSpecial(actual)
+		if !vouched && !releaseparse.SpecialTitleEvidence(actual, req.EpisodeTitle, shows...) {
 			return rel, false
 		}
 	}

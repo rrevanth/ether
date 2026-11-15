@@ -50,8 +50,12 @@ func payloadMatchesTitle(nzb []byte, title *core.Title) bool {
 		if p.Target.AddonSpecialEpisode > 0 {
 			actual = p.Target.AddonSpecialEpisode
 		}
-		info := releaseparse.Parse(path.Base(strings.ReplaceAll(p.Path, "\\", "/")))
-		return releaseparse.EpisodeMatches(info, 0, actual) || (len(info.Seasons) == 0 && len(info.Episodes) == 0 && len(info.AbsoluteEpisodes) == 0 && releaseparse.SpecialTitleEvidence(path.Base(strings.ReplaceAll(p.Path, "\\", "/")), title.Title, p.Target.ShowTitles...))
+		base := path.Base(strings.ReplaceAll(p.Path, "\\", "/"))
+		info := releaseparse.Parse(base)
+		unnumbered := len(info.Seasons) == 0 && len(info.Episodes) == 0 && len(info.AbsoluteEpisodes) == 0
+		// The add-on vouched for this labelled special (romaji-titled OVAs, jinx).
+		vouched := p.Target.AddonSpecialEpisode > 0 && releaseparse.NamesSpecial(base)
+		return releaseparse.EpisodeMatches(info, 0, actual) || (unnumbered && (vouched || releaseparse.SpecialTitleEvidence(base, title.Title, p.Target.ShowTitles...)))
 	}
 	normPath := strings.ReplaceAll(p.Path, "\\", "/")
 	baseInfo := releaseparse.Parse(path.Base(normPath))
