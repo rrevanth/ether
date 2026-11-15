@@ -55,7 +55,7 @@ func (m *SpecialMapper) LookupSpecial(ctx context.Context, req core.SearchReques
 		entry, cached := m.entries[id]
 		if cached && time.Now().Before(entry.until) {
 			m.mu.Unlock()
-			return matchSpecialTitle(req, entry.videos)
+			return mapSpecial(req, entry.videos)
 		}
 		wait, loading := m.loading[id]
 		if !loading {
@@ -93,7 +93,7 @@ func (m *SpecialMapper) LookupSpecial(ctx context.Context, req core.SearchReques
 		m.entries[id] = specialEntry{until: time.Now().Add(ttl), videos: videos}
 	}
 	m.mu.Unlock()
-	return matchSpecialTitle(req, videos)
+	return mapSpecial(req, videos)
 }
 
 func (m *SpecialMapper) fetch(ctx context.Context, id string) ([]specialVideo, bool) {
