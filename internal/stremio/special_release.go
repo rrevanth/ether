@@ -25,7 +25,10 @@ func specialRelease(rel core.Release, req core.SearchRequest, file, torrent stri
 	}
 	info := releaseparse.Parse(actual)
 	packInfo := releaseparse.Parse(torrent)
-	if len(packInfo.Seasons) > 0 && !releaseparse.NamesSpecial(torrent) {
+	// A regular-season pack never supplies a special; a season-zero pack
+	// ("[BlackRabbit] Kuroko's Basketball (2012) - S00") is a specials pack (jinx).
+	seasonZeroPack := len(packInfo.Seasons) == 1 && packInfo.Seasons[0] == 0
+	if len(packInfo.Seasons) > 0 && !seasonZeroPack && !releaseparse.NamesSpecial(torrent) {
 		return rel, false
 	}
 	if len(info.Seasons) > 0 && (!slices.Contains(info.Seasons, 0) || len(info.Seasons) != 1) {
