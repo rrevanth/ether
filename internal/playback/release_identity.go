@@ -59,10 +59,10 @@ func payloadMatchesTitle(nzb []byte, title *core.Title) bool {
 		baseInfo.Seasons = fullInfo.Seasons
 	}
 	if len(baseInfo.Episodes) > 0 || len(baseInfo.AbsoluteEpisodes) > 0 {
-		return releaseparse.EpisodeMatchesNumbering(baseInfo, season, episode, playbackAbsoluteEpisode(title, season, episode))
+		return releaseparse.EpisodeMatchesNumbering(baseInfo, season, episode, playbackAbsoluteEpisodeOr(title, season, episode, p.Target))
 	}
 	if len(fullInfo.Episodes) > 0 || len(fullInfo.AbsoluteEpisodes) > 0 {
-		return releaseparse.EpisodeMatchesNumbering(fullInfo, season, episode, playbackAbsoluteEpisode(title, season, episode))
+		return releaseparse.EpisodeMatchesNumbering(fullInfo, season, episode, playbackAbsoluteEpisodeOr(title, season, episode, p.Target))
 	}
 	return true
 }
@@ -124,7 +124,7 @@ func releaseMatchesTitle(rel core.Release, title *core.Title) bool {
 					return false
 				}
 			}
-		} else if !releaseparse.EpisodeMatchesNumbering(info, season, episode, playbackAbsoluteEpisode(title, season, episode)) {
+		} else if !releaseparse.EpisodeMatchesNumbering(info, season, episode, playbackAbsoluteEpisodeOr(title, season, episode, rel.Target)) {
 			return false
 		}
 	}
@@ -162,6 +162,21 @@ func playbackAbsoluteEpisode(title *core.Title, season, episode int) int {
 	}
 	if season == 1 {
 		return episode
+	}
+	return 0
+}
+
+// playbackAbsoluteEpisodeOr falls back to the absolute number the resolver
+// verified for this same episode (the release target) when playback's title
+// was hydrated without one. TMDB's story-arc seasons (One Piece S10E337) are
+// numbered from the series start, and a pack's "S10E01 (0337)" file is only
+// identifiable by that number (jinx).
+func playbackAbsoluteEpisodeOr(title *core.Title, season, episode int, target *core.ReleaseTarget) int {
+	if n := playbackAbsoluteEpisode(title, season, episode); n > 0 {
+		return n
+	}
+	if target != nil && target.AbsoluteEpisode > 0 && target.Season == season && target.Episode == episode {
+		return target.AbsoluteEpisode
 	}
 	return 0
 }
