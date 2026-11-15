@@ -15,7 +15,7 @@ var specialNumberTag = regexp.MustCompile(`(?i)\bS0{1,3}[ ._-]*E(\d{1,4})\b`)
 // specialRelease validates the add-on's own filename before translating the
 // identity to the catalogue order. The original IMDb number is retained for
 // debrid's independent file validation.
-func specialRelease(rel core.Release, req core.SearchRequest, file, torrent string, asked int) (core.Release, bool) {
+func specialRelease(rel core.Release, req core.SearchRequest, file, torrent string, asked int, trustAddon bool) (core.Release, bool) {
 	shows := append([]string{req.Title, req.OriginalTitle}, req.AlternativeTitles...)
 	actual := file
 	if actual == "" {
@@ -40,7 +40,7 @@ func specialRelease(rel core.Release, req core.SearchRequest, file, torrent stri
 	}
 	// The add-on vouches for a labelled special it answered for a mapped
 	// IMDb number (romaji-titled OVAs; see below) (jinx).
-	vouched := asked > 0 && releaseparse.NamesSpecial(actual)
+	vouched := trustAddon && asked > 0 && releaseparse.NamesSpecial(actual)
 	expected := req.Episode
 	if asked > 0 {
 		expected = asked
@@ -84,4 +84,44 @@ func specialRelease(rel core.Release, req core.SearchRequest, file, torrent stri
 	rel.Info.AbsoluteEpisodes = nil
 	rel.Target = &core.ReleaseTarget{Season: 0, Episode: req.Episode, EpisodeTitle: req.EpisodeTitle, ShowTitles: shows, SpecialTitles: req.SpecialTitles, AddonSpecialEpisode: asked}
 	return rel, true
+}
+
+// addonAnswerAgrees reports whether the add-on's answer for a special may
+// be taken on its word: every file in it that neither an S00Exx/0x number
+// nor TMDB's title confirms must name the same special. Torrentio answers
+// One Piece IMDb S00E42 with "Dai Tettei Kaibou! Kouzuki Oden Densetsu!"
+// and another special, "Momonosuke no Mei Shougun e no Michi - SP"; neither
+// can be told from TMDB's English title, so neither is trusted (jinx).
+func addonAnswerAgrees(names []string, req core.SearchRequest) bool {
+	shows := append([]string{req.Title, req.OriginalTitle}, req.AlternativeTitles...)
+	// Titles are grouped by overlap, not equality: a release's leftover tags
+	// ("10bit", "web1080p") must not split one special into two.
+	var groups []map[string]bool
+	for _, name := range names {
+		info := releaseparse.Parse(name)
+		if len(info.Seasons) > 0 || len(info.Episodes) > 0 || len(info.AbsoluteEpisodes) > 0 || releaseparse.SpecialTitleEvidence(name, req.EpisodeTitle, shows...) {
+			continue
+		}
+		words := releaseparse.SpecialTitleWords(info.Title, shows...)
+		if len(words) == 0 {
+			continue
+		}
+		same := false
+		for _, g := range groups {
+			shared := 0
+			for w := range words {
+				if g[w] {
+					shared++
+				}
+			}
+			if shared*5 >= min(len(words), len(g))*4 {
+				same = true
+				break
+			}
+		}
+		if !same {
+			groups = append(groups, words)
+		}
+	}
+	return len(groups) <= 1
 }
