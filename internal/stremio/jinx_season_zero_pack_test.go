@@ -37,6 +37,10 @@ func TestJinxRomajiOVAFileTheAddonVouchedFor(t *testing.T) {
 	if !keep || rel.Target == nil || rel.Target.AddonSpecialEpisode != 5 {
 		t.Fatalf("romaji OVA the add-on answered for IMDb 5 dropped: keep=%v", keep)
 	}
+	at := "[Anime Time] Haikyuu!! Tokushuu! Haru Kou Volley ni Kaketa Seishun - OVA"
+	if rel, keep := specialRelease(core.Release{Name: at}, req, "", at, 5); !keep || rel.Info.Title != "Haikyuu!!" {
+		t.Fatalf("vouched romaji OVA's series title = %q (keep=%v), want the show's name", rel.Info.Title, keep)
+	}
 	// Not asked by a mapped IMDb number: no vouching.
 	if _, keep := specialRelease(core.Release{Name: torrent}, req, file, torrent, 0); keep {
 		t.Fatal("romaji OVA kept without the add-on's mapped answer")
