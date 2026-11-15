@@ -158,6 +158,11 @@ func SpecialCountOnly(name string, shows ...string) bool {
 	if specialSE.MatchString(base) {
 		return false
 	}
+	// A whole season-zero pack ("Show.S00.Specials.1080p", "Show (2012) - S00")
+	// is not a count: the debrid file check picks and verifies the special inside (jinx).
+	if info := Parse(base); len(info.Seasons) == 1 && info.Seasons[0] == 0 && len(info.Episodes) == 0 && len(info.AbsoluteEpisodes) == 0 {
+		return false
+	}
 	words := specialNameWords(base, shows)
 	for w := range words {
 		if _, err := strconv.Atoi(w); err != nil && !specialNumbers.MatchString(w) {
