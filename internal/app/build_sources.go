@@ -60,7 +60,7 @@ func (a *App) buildSources(ctx context.Context, cfg config.Config) error {
 		siteOpts.LoginLock = a.clusterLoginLock // one login per site across nodes
 	}
 	a.sites = cardigann.New(siteOpts)
-	specials := stremio.NewSpecialMapper(egress.Client(egress.CapStremio, 3*time.Second), "https://v3-cinemeta.strem.io")
+	specials := stremio.NewSpecialMapper(egress.Client(egress.CapStremio, 10*time.Second), "https://v3-cinemeta.strem.io")
 	a.addons = stremio.NewServiceWithOptions(stremio.Options{Specials: specials})
 	a.indexers = newznab.NewManager(a.db, a.addonIndexers(context.Background(), cfg.Indexers), newznab.Options{
 		Logger:         log.With("component", "newznab"),
