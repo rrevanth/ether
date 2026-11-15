@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/braedonsaunders/ether/internal/core"
 	"github.com/braedonsaunders/ether/internal/releaseparse"
@@ -37,6 +38,9 @@ func specialRelease(rel core.Release, req core.SearchRequest, file, torrent stri
 	if !releaseparse.SpecialMatches(actual, req.EpisodeTitle, req.SpecialTitles, shows) {
 		return rel, false
 	}
+	// The add-on vouches for a labelled special it answered for a mapped
+	// IMDb number (romaji-titled OVAs; see below) (jinx).
+	vouched := asked > 0 && releaseparse.NamesSpecial(actual)
 	expected := req.Episode
 	if asked > 0 {
 		expected = asked
@@ -54,7 +58,6 @@ func specialRelease(rel core.Release, req core.SearchRequest, file, torrent stri
 		// asked about is that special even when it is titled in romaji
 		// ("Haikyuu!! Tokushuu! Haru-kou Volley ni Kaketa Seishun - OVA" for
 		// TMDB "Special Feature! The Spring Tournament of Their Youth") (jinx).
-		vouched := asked > 0 && releaseparse.NamesSpecial(actual)
 		if !vouched && !releaseparse.SpecialTitleEvidence(actual, req.EpisodeTitle, shows...) {
 			return rel, false
 		}
@@ -65,6 +68,17 @@ func specialRelease(rel core.Release, req core.SearchRequest, file, torrent stri
 	rel.Info = describe(rel.Name, file, torrent)
 	if prefix := releaseparse.SpecialSeriesTitle(actual); prefix != "" && releaseparse.TitleMatchesAny(core.ReleaseInfo{Title: prefix}, req.Title, shows) {
 		rel.Info.Title = prefix
+	}
+	// "Haikyuu!! Tokushuu! Haru Kou Volley ni Kaketa Seishun - OVA" parses as one
+	// long title; a vouched special that begins with the show's name is the show's.
+	if vouched && !releaseparse.TitleMatchesAny(rel.Info, req.Title, shows) {
+		name := releaseparse.NormalizeTitle(releaseparse.Parse(actual).Title)
+		for _, show := range shows {
+			if n := releaseparse.NormalizeTitle(show); n != "" && strings.HasPrefix(name, n+" ") {
+				rel.Info.Title = show
+				break
+			}
+		}
 	}
 	rel.Info.Seasons, rel.Info.Episodes, rel.Info.FullSeason = []int{0}, []int{req.Episode}, false
 	rel.Info.AbsoluteEpisodes = nil

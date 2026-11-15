@@ -3,6 +3,7 @@ package stremio
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,6 +34,11 @@ type specialVideo struct {
 // SpecialMapper owns a small, demand-loaded metadata cache. The composition
 // root supplies both the metadata origin and its HTTP transport; constructing
 // it performs no network or background work.
+const (
+	specialsFetchTimeout = 10 * time.Second
+	specialsRetryAfter   = 5 * time.Minute
+)
+
 type SpecialMapper struct {
 	client  *http.Client
 	base    string
@@ -74,7 +80,10 @@ func (m *SpecialMapper) LookupSpecial(ctx context.Context, req core.SearchReques
 	m.loading[id] = done
 	m.mu.Unlock()
 	videos, ok := m.fetch(ctx, id)
-	ttl := time.Hour
+	if !ok {
+		slog.Default().Debug("stremio: Cinemeta specials fetch failed; specials of this series are not asked until the retry", "imdb", id, "ctxErr", ctx.Err())
+	}
+	ttl := specialsRetryAfter // a failed fetch is retried soon, not after an hour (jinx)
 	if ok {
 		ttl = 24 * time.Hour
 	}
@@ -97,7 +106,8 @@ func (m *SpecialMapper) LookupSpecial(ctx context.Context, req core.SearchReques
 }
 
 func (m *SpecialMapper) fetch(ctx context.Context, id string) ([]specialVideo, bool) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	// Large series (One Piece: 1.4 MB, ~1 s) need longer than 3 s on a cold fetch (jinx).
+	ctx, cancel := context.WithTimeout(ctx, specialsFetchTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.base+"/meta/series/"+id+".json", nil)
 	if err != nil {
