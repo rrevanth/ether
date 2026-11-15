@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	specialSE        = regexp.MustCompile(`(?i)\bS0{1,3}[ ._-]*E\d{1,4}\b`)
-	specialLabel     = regexp.MustCompile(`(?i)\b(?:specials?|ovas?|oads?)\b`)
+	specialSE        = regexp.MustCompile(`(?i)\bS0{1,3}[ ._-]*E\d{1,4}\b|\b0{1,3}x\d{1,4}\b`)             // "0x42" too (jinx)
+	specialLabel     = regexp.MustCompile(`(?i)\b(?:specials?|ovas?|oads?|sp\d{0,3}|s\d{1,2}sp\d{1,3})\b`) // "SP30", "SP 01", "S02SP1" (jinx)
 	specialTechnical = regexp.MustCompile(`(?i)\b(?:\d{3,4}[pi]|\d{3,4}x\d{3,4}|4k|uhd|blu[ -]?ray|bd(?:rip|remux)?|web(?:rip|[ -]?dl)?|hdtv|dvd(?:rip)?|remux|x26[45]|h[ .]?26[45]|hevc|avc|av1|aac|ac3|eac3|ddp|dts|flac|opus|multi|dual|custom|10bits?|hdr|sdr|dv|proper|repack|mkv|mp4|avi)\b`)
 	specialTags      = regexp.MustCompile(`\[[^\]]*\]|\{[^}]*\}`)
 	specialNumbers   = regexp.MustCompile(`(?i)^(?:s\d+(?:e\d+)?|\d+x\d+|e\d+|ep\d+|sp\d+|s\d+sp\d+|v\d+)$`)

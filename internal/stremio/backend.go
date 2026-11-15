@@ -401,6 +401,16 @@ func convertWith(streams []stream, req core.SearchRequest, packs bool, opts conv
 	out = make([]core.Release, 0, min(len(streams), maxResults))
 	seen := make(map[string]bool, len(streams))
 	seenSkipped := make(map[string]bool, len(streams))
+	trustAddon := false
+	if req.Type == core.TypeEpisode && req.Season == 0 && opts.specialEpisode > 0 {
+		answered := make([]string, 0, len(streams))
+		for i := range streams {
+			text := cmp.Or(streams[i].Description, streams[i].Title, streams[i].Name)
+			torrent, file := names(text, streams[i].BehaviorHints.Filename)
+			answered = append(answered, cmp.Or(file, torrent))
+		}
+		trustAddon = addonAnswerAgrees(answered, req)
+	}
 	for i := range streams {
 		s := &streams[i]
 		text := s.Description
@@ -471,7 +481,7 @@ func convertWith(streams []stream, req core.SearchRequest, packs bool, opts conv
 		}
 		if req.Type == core.TypeEpisode && req.Season == 0 {
 			var keep bool
-			rel, keep = specialRelease(rel, req, file, torrent, opts.specialEpisode)
+			rel, keep = specialRelease(rel, req, file, torrent, opts.specialEpisode, trustAddon)
 			if !keep {
 				continue
 			}
