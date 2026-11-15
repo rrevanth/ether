@@ -2437,8 +2437,15 @@ func episodeIdentityEvidence(rel core.Release, req core.SearchRequest) bool {
 		return false
 	}
 	year := releaseparse.EpisodeSeriesYear(rel.Name, rel.Info.Year)
-	return matched || (year > 0 && req.Year > 0 && releaseparse.SeriesYearMatches(year, req.Year)) ||
-		releaseparse.EpisodeTitleEvidence(rel.Name, req.EpisodeTitle)
+	if matched || (year > 0 && req.Year > 0 && releaseparse.SeriesYearMatches(year, req.Year)) ||
+		releaseparse.EpisodeTitleEvidence(rel.Name, req.EpisodeTitle) {
+		return true
+	}
+	// Specials are rarely numbered S00Exx ("[Judas] One Piece - SP30 - A
+	// Comprehensive Anatomy! The Legend of Kozuki Oden!"); their own title is
+	// the evidence that tells the anime from a same-named show (jinx).
+	return req.Season == 0 && req.Type == core.TypeEpisode &&
+		releaseparse.SpecialTitleEvidence(rel.Name, req.EpisodeTitle, specialShowTitles(req)...)
 }
 
 // languageConflict reports that a release names its audio languages and
