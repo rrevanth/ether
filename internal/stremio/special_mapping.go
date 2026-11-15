@@ -3,6 +3,7 @@ package stremio
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -63,6 +64,9 @@ func (m *SpecialMapper) LookupSpecial(ctx context.Context, req core.SearchReques
 	m.loading[id] = true
 	m.mu.Unlock()
 	videos, ok := m.fetch(ctx, id)
+	if !ok {
+		slog.Default().Debug("stremio: Cinemeta specials fetch failed; specials of this series are not asked for an hour", "imdb", id, "ctxErr", ctx.Err())
+	}
 	ttl := time.Hour
 	if ok {
 		ttl = 24 * time.Hour

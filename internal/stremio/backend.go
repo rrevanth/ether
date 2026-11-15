@@ -165,6 +165,9 @@ func (b *Backend) Search(ctx context.Context, req core.SearchRequest, reserve fu
 	}
 	look, ok := b.lookupID(ctx, req)
 	if !ok {
+		if req.Season == 0 {
+			slog.Default().Debug("stremio: special not asked (no IMDb mapping)", "host", b.base.Host, "imdb", req.IDs.IMDB, "episode", req.Episode, "title", req.EpisodeTitle)
+		}
 		return nil, nil
 	}
 	kind, id, packs := look.kind, look.id, look.packs
@@ -184,6 +187,9 @@ func (b *Backend) Search(ctx context.Context, req core.SearchRequest, reserve fu
 	rels, skippedNoHash, skippedAmbiguous := convertWith(answer.Streams, req, packs, convertOptions{
 		origin: b.origin(), instance: b.instance, entryEpisode: look.entryEpisode, specialEpisode: look.specialEpisode,
 	})
+	if req.Season == 0 {
+		slog.Default().Debug("stremio: special answered", "host", b.base.Host, "id", id, "streams", len(answer.Streams), "kept", len(rels))
+	}
 	b.logSkipped(skippedNoHash, skippedAmbiguous)
 	return rels, nil
 }
