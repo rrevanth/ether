@@ -845,6 +845,12 @@ func ChooseFile(files []File, target *core.ReleaseTarget) (File, error) {
 			(len(baseInfo.Episodes) == 0 && (len(videos) == 1 || len(fullInfo.Episodes) == 1) && releaseparse.EpisodeMatches(fullInfo, target.Season, target.Episode)) {
 			return f, nil
 		}
+		// TVDB-style files number a long anime from the series start in season 1 ("One.Piece.S01E1176"): the
+		// resolver accepts such a release by that absolute number, so the file picker must too (jinx).
+		if target.AbsoluteEpisode >= 100 && len(baseInfo.Seasons) == 1 && baseInfo.Seasons[0] == 1 &&
+			releaseparse.EpisodeMatchesNumbering(baseInfo, target.Season, target.Episode, target.AbsoluteEpisode) {
+			return f, nil
+		}
 	}
 	// Pass 2: classic pack numbering ("Season 2/05 - Title.mkv", "205 - Title.avi",
 	// or miniseries "Part 2 - Title.mkv") when no standard SxxExx matched.
