@@ -1098,6 +1098,12 @@ func ChooseFile(files []File, target *core.ReleaseTarget) (File, error) {
 				(cand.Season > 0 && len(baseInfo.Episodes) == 0 && len(baseInfo.AbsoluteEpisodes) == 0 && releaseparse.EpisodeMatchesAirDateString(baseInfo, target.AirDate)) {
 				return f, nil
 			}
+			// TVDB-style files number a long anime from the series start in season 1 ("One.Piece.S01E1176"): the
+			// resolver accepts such a release by that absolute number, so the file picker must too (jinx).
+			if target.AbsoluteEpisode >= 100 && len(baseInfo.Seasons) == 1 && baseInfo.Seasons[0] == 1 &&
+				releaseparse.EpisodeMatchesNumbering(baseInfo, target.Season, target.Episode, target.AbsoluteEpisode) {
+				return f, nil
+			}
 		}
 		if seasonCounted != nil {
 			return *seasonCounted, nil
